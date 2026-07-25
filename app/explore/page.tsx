@@ -13,63 +13,57 @@ const categories = [
 const places = [
   {
     id: "sterling-ooty",
-    name: "Sterling Ooty Fern Hill",
+    name: "Sterling Ooty – Fern Hill",
     category: "Hotel",
     location: "Ooty",
-    rating: "4.5",
     icon: "🏨",
     description:
-      "A comfortable hill resort with scenic views, family-friendly rooms and easy access to Ooty attractions.",
+      "A hill resort in Ooty offering accommodation, dining, leisure facilities and convenient access to local attractions.",
   },
   {
     id: "green-valley-homestay",
-    name: "Green Valley Homestay",
+    name: "Green Valley Home",
     category: "Homestay",
-    location: "Coonoor",
-    rating: "4.7",
+    location: "Kalhatty, Ooty",
     icon: "🏡",
     description:
-      "A peaceful homestay surrounded by tea estates, ideal for families, couples and weekend travellers.",
+      "A budget-friendly homestay on the scenic Mysore–Ooty Road with comfortable rooms, parking and travel assistance.",
   },
   {
     id: "earls-secret",
     name: "Earl's Secret",
     category: "Restaurant",
-    location: "Ooty",
-    rating: "4.6",
+    location: "Pudumund, Ooty",
     icon: "🍽️",
     description:
-      "A popular dining destination known for its colonial atmosphere, scenic setting and quality food.",
+      "A heritage fine-dining restaurant inside King's Cliff, known for its glass atrium and colonial ambience.",
   },
   {
-    id: "nilgiris-taxi-service",
-    name: "Nilgiris Taxi Service",
+    id: "nilgiri-taxi",
+    name: "Nilgiri Taxi",
     category: "Taxi",
-    location: "Ooty, Coonoor, Kotagiri",
-    rating: "4.8",
+    location: "Mel Kodappamund, Ooty",
     icon: "🚕",
     description:
-      "Local taxi service for sightseeing, railway station pickup, airport travel and customised Nilgiris trips.",
+      "A 24-hour cab and tour service for Nilgiris sightseeing, outstation trips and airport or railway transfers.",
   },
   {
     id: "tea-factory-museum",
-    name: "Tea Factory & Museum",
+    name: "The Tea Factory & The Tea Museum",
     category: "Tourist Place",
-    location: "Ooty",
-    rating: "4.4",
-    icon: "🌿",
+    location: "Doddabetta Road, Ooty",
+    icon: "🍃",
     description:
-      "Learn how Nilgiris tea is produced and explore local tea varieties, products and tasting experiences.",
+      "See Nilgiri tea production, explore museum exhibits, taste fresh tea and shop for tea, chocolates and souvenirs.",
   },
   {
-    id: "nilgiris-local-market",
-    name: "Nilgiris Local Market",
+    id: "tibetan-market",
+    name: "Tibetan Market",
     category: "Shopping",
-    location: "Ooty",
-    rating: "4.3",
+    location: "Near Botanical Garden, Ooty",
     icon: "🛍️",
     description:
-      "Discover homemade chocolates, tea products, oils, spices, handmade items and local souvenirs.",
+      "A popular market for winter clothing, woollens, Tibetan handicrafts, accessories and souvenirs.",
   },
 ];
 
@@ -102,7 +96,7 @@ export default function ExplorePage() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl leading-7 text-emerald-50">
-            Browse hotels, homestays, restaurants, taxi services, shopping,
+            Browse accommodation, restaurants, taxi services, shopping,
             tourist attractions and trusted local businesses.
           </p>
 
@@ -153,14 +147,14 @@ export default function ExplorePage() {
             </div>
 
             <p className="text-sm text-slate-500">
-              Showing {places.length} sample listings
+              Showing {places.length} listings
             </p>
           </div>
 
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {places.map((place) => (
               <article
-                key={place.name}
+                key={place.id}
                 className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
               >
                 <div className="flex h-44 items-center justify-center bg-gradient-to-br from-emerald-100 to-teal-100 text-7xl">
@@ -168,21 +162,13 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                        {place.category}
-                      </p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                    {place.category}
+                  </p>
 
-                      <h3 className="mt-2 text-xl font-black text-slate-900">
-                        {place.name}
-                      </h3>
-                    </div>
-
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-bold text-amber-700">
-                      ⭐ {place.rating}
-                    </span>
-                  </div>
+                  <h3 className="mt-2 text-xl font-black text-slate-900">
+                    {place.name}
+                  </h3>
 
                   <p className="mt-3 text-sm font-semibold text-slate-500">
                     📍 {place.location}
@@ -192,20 +178,13 @@ export default function ExplorePage() {
                     {place.description}
                   </p>
 
-                  <div className="mt-6 flex gap-3">
+                  <div className="mt-6">
                     <Link
                       href={`/business/${place.id}`}
-                      className="flex-1 rounded-xl bg-emerald-700 px-4 py-3 text-center font-bold text-white transition hover:bg-emerald-800"
+                      className="block rounded-xl bg-emerald-700 px-4 py-3 text-center font-bold text-white transition hover:bg-emerald-800"
                     >
                       View Details
                     </Link>
-
-                    <button
-                      type="button"
-                      className="rounded-xl border border-emerald-700 px-4 py-3 font-bold text-emerald-700 transition hover:bg-emerald-50"
-                    >
-                      Contact
-                    </button>
                   </div>
                 </div>
               </article>
