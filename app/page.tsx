@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
@@ -12,9 +14,12 @@ export default function HomePage() {
           beautiful Nilgiris.
         </p>
 
-        <button className="mt-8 rounded-xl bg-green-700 px-6 py-3 text-white transition hover:bg-green-800">
+        <Link
+          href="/explore"
+          className="mt-8 rounded-xl bg-green-700 px-6 py-3 text-white transition hover:bg-green-800"
+        >
           Explore Now
-        </button>
+        </Link>
 
         <p className="mt-10 text-sm text-gray-500">
           Version 0.1.0 • Powered by Next.js
