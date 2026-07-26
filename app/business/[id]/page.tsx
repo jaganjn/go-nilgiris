@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getBusiness } from "@/lib/businesses";
+import EnquiryForm from "@/components/EnquiryForm";
 import type { Business } from "@/types/business";
 
 const phoneHref = (number: string) =>
@@ -241,6 +242,11 @@ export default function BusinessDetailsPage() {
                 </a>
               )}
             </article>
+
+            <EnquiryForm
+              businessId={business.id}
+              businessName={business.name}
+            />
           </div>
 
           <aside>
