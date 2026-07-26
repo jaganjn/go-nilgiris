@@ -1,46 +1,120 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
-import { businessAliases, seedBusinesses } from "@/data/seedBusinesses";
-import { db, firebaseConfigured } from "@/lib/firebase";
-import type { Business, BusinessInput } from "@/types/business";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+
+import {
+  businessAliases,
+  seedBusinesses,
+} from "@/data/seedBusinesses";
+
+import {
+  db,
+  firebaseConfigured,
+} from "@/lib/firebase";
+
+import type {
+  Business,
+  BusinessApprovalStatus,
+  BusinessInput,
+} from "@/types/business";
+
+import type { AccountProfile } from "@/types/account";
 
 const collectionName = "businesses";
 
-export async function listBusinesses(): Promise<Business[]> {
-  if (!firebaseConfigured || !db) return seedBusinesses;
+function mapBusiness(
+  businessDocument: {
+    id: string;
+    data: () => unknown;
+  }
+): Business {
+  return {
+    id: businessDocument.id,
+    ...(businessDocument.data() as Omit<Business, "id">),
+  };
+}
+
+function isPublicBusiness(business: Business) {
+  return (
+    !business.approvalStatus ||
+    business.approvalStatus === "approved"
+  );
+}
+
+/**
+ * Used by the public Explore page.
+ * Pending and rejected owner submissions are hidden.
+ */
+export async function listBusinesses(): Promise<
+  Business[]
+> {
+  const businesses = await listAllBusinesses();
+
+  return businesses.filter(isPublicBusiness);
+}
+
+/**
+ * Used by the admin dashboard.
+ * Returns approved, pending and rejected businesses.
+ */
+export async function listAllBusinesses(): Promise<
+  Business[]
+> {
+  if (!firebaseConfigured || !db) {
+    return seedBusinesses;
+  }
+
   try {
-    const snapshot = await getDocs(query(collection(db, collectionName), orderBy("name")));
-    if (snapshot.empty) return seedBusinesses;
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Business);
+    const snapshot = await getDocs(
+      query(
+        collection(db, collectionName),
+        orderBy("name")
+      )
+    );
+
+    if (snapshot.empty) {
+      return seedBusinesses;
+    }
+
+    return snapshot.docs.map(mapBusiness);
   } catch {
     return seedBusinesses;
   }
 }
 
-export async function getBusiness(id: string): Promise<Business | null> {
-  const canonicalId = businessAliases[id] ?? id;
-  if (!firebaseConfigured || !db) return seedBusinesses.find((item) => item.id === canonicalId) ?? null;
-  try {
-    const snapshot = await getDoc(doc(db, collectionName, canonicalId));
-    if (snapshot.exists()) return { id: snapshot.id, ...snapshot.data() } as Business;
-  } catch {
-    // Fall through to the bundled seed data.
+/**
+ * Loads all businesses submitted by one owner.
+ */
+export async function listOwnerBusinesses(
+  ownerId: string
+): Promise<Business[]> {
+  if (!firebaseConfigured || !db || !ownerId) {
+    return [];
   }
-  return seedBusinesses.find((item) => item.id === canonicalId) ?? null;
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, collectionName),
+      where("ownerId", "==", ownerId)
+    )
+  );
+
+  return snapshot.docs
+    .map(mapBusiness)
+    .sort((first, second) =>
+      first.name.localeCompare(second.name)
+    );
 }
 
-export async function saveBusiness(input: BusinessInput): Promise<string> {
-  if (!db) throw new Error("Firebase is not configured.");
-  const payload = { ...input, updatedAt: serverTimestamp() };
-  if (input.id) {
-    await setDoc(doc(db, collectionName, input.id), { ...payload, createdAt: serverTimestamp() }, { merge: true });
-    return input.id;
-  }
-  const created = await addDoc(collection(db, collectionName), { ...payload, createdAt: serverTimestamp() });
-  await updateDoc(created, { id: created.id });
-  return created.id;
-}
-
-export async function removeBusiness(id: string) {
-  if (!db) throw new Error("Firebase is not configured.");
-  await deleteDoc(doc(db, collectionName, id));
-}
+/**
+ * Loads any
