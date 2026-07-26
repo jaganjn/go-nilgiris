@@ -61,6 +61,37 @@ function formatDate(value: unknown) {
   });
 }
 
+function getWhatsAppPhone(phone: string) {
+  let cleanPhone = phone.replace(/\D/g, "");
+
+  if (
+    cleanPhone.length === 11 &&
+    cleanPhone.startsWith("0")
+  ) {
+    cleanPhone = cleanPhone.slice(1);
+  }
+
+  if (cleanPhone.length === 10) {
+    cleanPhone = `91${cleanPhone}`;
+  }
+
+  return cleanPhone;
+}
+
+function getApprovalMessage(ownerName: string) {
+  return `Hello ${ownerName},
+
+Your Go Nilgiris Business Owner account has been approved successfully. ✅
+
+You can now log in using your registered email and password:
+
+https://go-nilgiris-pearl.vercel.app/owner/login
+
+After login, you can submit and manage your business listing and view customer enquiries.
+
+– Go Nilgiris Team`;
+}
+
 export default function OwnerApprovalsPage() {
   const [owners, setOwners] = useState<AccountProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +156,7 @@ export default function OwnerApprovalsPage() {
 
       setMessage(
         status === "active"
-          ? "Owner account approved successfully."
+          ? "Owner account approved. You can now send the approval WhatsApp message."
           : status === "suspended"
             ? "Owner account suspended."
             : "Owner account moved to pending."
@@ -168,8 +199,8 @@ export default function OwnerApprovalsPage() {
               </h1>
 
               <p className="mt-2 text-slate-500">
-                Review, approve and manage registered business-owner
-                accounts.
+                Review, approve and manage registered
+                business-owner accounts.
               </p>
             </div>
 
@@ -257,13 +288,18 @@ export default function OwnerApprovalsPage() {
               </p>
 
               <p className="mt-2 text-slate-500">
-                New business-owner registrations will appear here.
+                New business-owner registrations will appear
+                here.
               </p>
             </div>
           ) : (
             <div className="mt-7 space-y-5">
               {owners.map((owner) => {
-                const cleanPhone = owner.phone.replace(/\D/g, "");
+                const whatsappPhone =
+                  getWhatsAppPhone(owner.phone);
+
+                const approvalMessage =
+                  getApprovalMessage(owner.displayName);
 
                 return (
                   <article
@@ -287,7 +323,8 @@ export default function OwnerApprovalsPage() {
                         </div>
 
                         <p className="mt-2 text-sm text-slate-500">
-                          Registered {formatDate(owner.createdAt)}
+                          Registered{" "}
+                          {formatDate(owner.createdAt)}
                         </p>
                       </div>
 
@@ -297,7 +334,8 @@ export default function OwnerApprovalsPage() {
                         onChange={(event) =>
                           changeStatus(
                             owner.uid,
-                            event.target.value as AccountStatus
+                            event.target
+                              .value as AccountStatus
                           )
                         }
                         className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-emerald-500 disabled:opacity-50"
@@ -348,9 +386,14 @@ export default function OwnerApprovalsPage() {
                       {owner.status !== "active" && (
                         <button
                           type="button"
-                          disabled={updatingUid === owner.uid}
+                          disabled={
+                            updatingUid === owner.uid
+                          }
                           onClick={() =>
-                            changeStatus(owner.uid, "active")
+                            changeStatus(
+                              owner.uid,
+                              "active"
+                            )
                           }
                           className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                         >
@@ -358,12 +401,31 @@ export default function OwnerApprovalsPage() {
                         </button>
                       )}
 
+                      {owner.status === "active" &&
+                        whatsappPhone && (
+                          <a
+                            href={`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(
+                              approvalMessage
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-green-700"
+                          >
+                            Send Approval WhatsApp
+                          </a>
+                        )}
+
                       {owner.status !== "suspended" && (
                         <button
                           type="button"
-                          disabled={updatingUid === owner.uid}
+                          disabled={
+                            updatingUid === owner.uid
+                          }
                           onClick={() =>
-                            changeStatus(owner.uid, "suspended")
+                            changeStatus(
+                              owner.uid,
+                              "suspended"
+                            )
                           }
                           className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-700 disabled:opacity-50"
                         >
@@ -378,18 +440,19 @@ export default function OwnerApprovalsPage() {
                         Call Owner
                       </a>
 
-                      {cleanPhone && (
-                        <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${owner.displayName}, this is regarding your Go Nilgiris business-owner registration.`
-                          )}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800"
-                        >
-                          WhatsApp Owner
-                        </a>
-                      )}
+                      {owner.status !== "active" &&
+                        whatsappPhone && (
+                          <a
+                            href={`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(
+                              `Hello ${owner.displayName}, this is regarding your Go Nilgiris business-owner registration.`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800"
+                          >
+                            WhatsApp Owner
+                          </a>
+                        )}
                     </div>
                   </article>
                 );
@@ -400,4 +463,4 @@ export default function OwnerApprovalsPage() {
       </main>
     </AdminGuard>
   );
-}
+                            }
