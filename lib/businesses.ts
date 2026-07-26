@@ -79,11 +79,27 @@ export async function listAllBusinesses(): Promise<
       )
     );
 
-    if (snapshot.empty) {
-      return seedBusinesses;
-    }
+    const firestoreBusinesses =
+      snapshot.docs.map(mapBusiness);
 
-    return snapshot.docs.map(mapBusiness);
+    const firestoreBusinessIds = new Set(
+      firestoreBusinesses.map(
+        (business) => business.id
+      )
+    );
+
+    const remainingSeedBusinesses =
+      seedBusinesses.filter(
+        (business) =>
+          !firestoreBusinessIds.has(business.id)
+      );
+
+    return [
+      ...firestoreBusinesses,
+      ...remainingSeedBusinesses,
+    ].sort((first, second) =>
+      first.name.localeCompare(second.name)
+    );
   } catch {
     return seedBusinesses;
   }
@@ -96,18 +112,22 @@ export async function listOwnerBusinesses(
     return [];
   }
 
-  const snapshot = await getDocs(
-    query(
-      collection(db, collectionName),
-      where("ownerId", "==", ownerId)
-    )
-  );
-
-  return snapshot.docs
-    .map(mapBusiness)
-    .sort((first, second) =>
-      first.name.localeCompare(second.name)
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(db, collectionName),
+        where("ownerId", "==", ownerId)
+      )
     );
+
+    return snapshot.docs
+      .map(mapBusiness)
+      .sort((first, second) =>
+        first.name.localeCompare(second.name)
+      );
+  } catch {
+    return [];
+  }
 }
 
 export async function getBusiness(
@@ -118,14 +138,19 @@ export async function getBusiness(
   if (!firebaseConfigured || !db) {
     return (
       seedBusinesses.find(
-        (business) => business.id === canonicalId
+        (business) =>
+          business.id === canonicalId
       ) ?? null
     );
   }
 
   try {
     const snapshot = await getDoc(
-      doc(db, collectionName, canonicalId)
+      doc(
+        db,
+        collectionName,
+        canonicalId
+      )
     );
 
     if (snapshot.exists()) {
@@ -135,12 +160,13 @@ export async function getBusiness(
       } as Business;
     }
   } catch {
-    // Firestore unavailable. Seed data is used below.
+    // Seed business lookup is used below.
   }
 
   return (
     seedBusinesses.find(
-      (business) => business.id === canonicalId
+      (business) =>
+        business.id === canonicalId
     ) ?? null
   );
 }
@@ -150,7 +176,10 @@ export async function getPublicBusiness(
 ): Promise<Business | null> {
   const business = await getBusiness(id);
 
-  if (!business || !isPublicBusiness(business)) {
+  if (
+    !business ||
+    !isPublicBusiness(business)
+  ) {
     return null;
   }
 
@@ -161,13 +190,17 @@ export async function saveBusiness(
   input: BusinessInput
 ): Promise<string> {
   if (!firebaseConfigured || !db) {
-    throw new Error("Firebase is not configured.");
+    throw new Error(
+      "Firebase is not configured."
+    );
   }
 
   const businessId = input.id.trim();
 
   if (!businessId) {
-    throw new Error("Business ID is required.");
+    throw new Error(
+      "Business ID is required."
+    );
   }
 
   const businessReference = doc(
@@ -185,7 +218,8 @@ export async function saveBusiness(
       ? {}
       : {
           submittedBy: "admin" as const,
-          approvalStatus: "approved" as const,
+          approvalStatus:
+            "approved" as const,
           createdAt: serverTimestamp(),
         };
 
@@ -210,7 +244,9 @@ export async function submitOwnerBusiness(
   owner: AccountProfile
 ): Promise<string> {
   if (!firebaseConfigured || !db) {
-    throw new Error("Firebase is not configured.");
+    throw new Error(
+      "Firebase is not configured."
+    );
   }
 
   if (
@@ -225,7 +261,9 @@ export async function submitOwnerBusiness(
   const businessId = input.id.trim();
 
   if (!businessId) {
-    throw new Error("Business ID is required.");
+    throw new Error(
+      "Business ID is required."
+    );
   }
 
   const businessReference = doc(
@@ -238,7 +276,16 @@ export async function submitOwnerBusiness(
     businessReference
   );
 
-  if (existingBusiness.exists()) {
+  const seedBusinessExists =
+    seedBusinesses.some(
+      (business) =>
+        business.id === businessId
+    );
+
+  if (
+    existingBusiness.exists() ||
+    seedBusinessExists
+  ) {
     throw new Error(
       "This business name or URL is already being used. Please use a different business name."
     );
@@ -272,7 +319,9 @@ export async function updateBusinessApproval(
   rejectionReason = ""
 ): Promise<void> {
   if (!firebaseConfigured || !db) {
-    throw new Error("Firebase is not configured.");
+    throw new Error(
+      "Firebase is not configured."
+    );
   }
 
   if (
@@ -286,13 +335,19 @@ export async function updateBusinessApproval(
   }
 
   await updateDoc(
-    doc(db, collectionName, businessId),
+    doc(
+      db,
+      collectionName,
+      businessId
+    ),
     {
       approvalStatus,
+
       rejectionReason:
         approvalStatus === "rejected"
           ? rejectionReason.trim()
           : "",
+
       updatedAt: serverTimestamp(),
     }
   );
@@ -302,10 +357,16 @@ export async function removeBusiness(
   id: string
 ): Promise<void> {
   if (!firebaseConfigured || !db) {
-    throw new Error("Firebase is not configured.");
+    throw new Error(
+      "Firebase is not configured."
+    );
   }
 
   await deleteDoc(
-    doc(db, collectionName, id)
+    doc(
+      db,
+      collectionName,
+      id
+    )
   );
 }
