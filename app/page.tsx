@@ -1,30 +1,65 @@
 import Link from "next/link";
 
 const categories = [
-  { name: "Hotels", icon: "🏨", description: "Comfortable stays" },
-  { name: "Homestays", icon: "🏡", description: "Local hospitality" },
-  { name: "Restaurants", icon: "🍽️", description: "Taste the Nilgiris" },
-  { name: "Taxi Services", icon: "🚕", description: "Travel comfortably" },
-  { name: "Shopping", icon: "🛍️", description: "Local products" },
-  { name: "Tea Estates", icon: "🌿", description: "Tea experiences" },
-  { name: "Tourist Places", icon: "📍", description: "Famous attractions" },
-  { name: "Adventure", icon: "⛰️", description: "Outdoor experiences" },
+  {
+    name: "Hotels",
+    icon: "🏨",
+    description: "Comfortable stays",
+  },
+  {
+    name: "Homestays",
+    icon: "🏡",
+    description: "Local hospitality",
+  },
+  {
+    name: "Restaurants",
+    icon: "🍽️",
+    description: "Taste the Nilgiris",
+  },
+  {
+    name: "Taxi Services",
+    icon: "🚕",
+    description: "Travel comfortably",
+  },
+  {
+    name: "Shopping",
+    icon: "🛍️",
+    description: "Local products",
+  },
+  {
+    name: "Tea Estates",
+    icon: "🌿",
+    description: "Tea experiences",
+  },
+  {
+    name: "Tourist Places",
+    icon: "📍",
+    description: "Famous attractions",
+  },
+  {
+    name: "Adventure",
+    icon: "⛰️",
+    description: "Outdoor experiences",
+  },
 ];
 
 const destinations = [
   {
     name: "Ooty",
-    description: "Lakes, gardens, viewpoints and unforgettable mountain weather.",
+    description:
+      "Lakes, gardens, viewpoints and unforgettable mountain weather.",
     icon: "🌄",
   },
   {
     name: "Coonoor",
-    description: "Tea estates, waterfalls, heritage trains and peaceful landscapes.",
+    description:
+      "Tea estates, waterfalls, heritage trains and peaceful landscapes.",
     icon: "🚂",
   },
   {
     name: "Kotagiri",
-    description: "Quiet trails, scenic valleys and authentic Nilgiris experiences.",
+    description:
+      "Quiet trails, scenic valleys and authentic Nilgiris experiences.",
     icon: "🌲",
   },
 ];
@@ -34,24 +69,39 @@ export default function HomePage() {
     <main className="min-h-screen bg-[#f7faf7] text-slate-900">
       <header className="sticky top-0 z-50 border-b border-emerald-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <Link href="/" className="text-xl font-extrabold text-emerald-800">
+          <Link
+            href="/"
+            className="text-xl font-extrabold text-emerald-800"
+          >
             Go Nilgiris
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-700 md:flex">
-            <Link href="/" className="hover:text-emerald-700">
+            <Link
+              href="/"
+              className="hover:text-emerald-700"
+            >
               Home
             </Link>
 
-            <Link href="/explore" className="hover:text-emerald-700">
+            <Link
+              href="/explore"
+              className="hover:text-emerald-700"
+            >
               Explore
             </Link>
 
-            <a href="#categories" className="hover:text-emerald-700">
+            <a
+              href="#categories"
+              className="hover:text-emerald-700"
+            >
               Categories
             </a>
 
-            <a href="#destinations" className="hover:text-emerald-700">
+            <a
+              href="#destinations"
+              className="hover:text-emerald-700"
+            >
               Destinations
             </a>
           </nav>
@@ -67,6 +117,7 @@ export default function HomePage() {
 
       <section className="relative overflow-hidden bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-700 px-5 py-20 text-white md:py-28">
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+
         <div className="absolute -bottom-20 -left-16 h-72 w-72 rounded-full bg-lime-300/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-5xl text-center">
@@ -76,15 +127,16 @@ export default function HomePage() {
 
           <h1 className="text-4xl font-black leading-tight sm:text-5xl md:text-7xl">
             One Destination.
+
             <span className="block text-emerald-200">
               Endless Experiences.
             </span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-emerald-50 sm:text-lg">
-            Find trusted hotels, homestays, restaurants, taxis, shopping,
-            tourist attractions and local businesses across Ooty, Coonoor,
-            Kotagiri and the Nilgiris.
+            Find trusted hotels, homestays, restaurants, taxis,
+            shopping, tourist attractions and local businesses
+            across Ooty, Coonoor, Kotagiri and the Nilgiris.
           </p>
 
           <div className="mx-auto mt-9 flex max-w-2xl flex-col gap-3 rounded-2xl bg-white p-3 shadow-2xl sm:flex-row">
@@ -107,9 +159,11 @@ export default function HomePage() {
             <span className="rounded-full bg-white/10 px-4 py-2">
               ✓ Trusted local listings
             </span>
+
             <span className="rounded-full bg-white/10 px-4 py-2">
               ✓ Tourist-friendly
             </span>
+
             <span className="rounded-full bg-white/10 px-4 py-2">
               ✓ Mobile responsive
             </span>
@@ -117,7 +171,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="categories" className="px-5 py-16 md:py-20">
+      <section
+        id="categories"
+        className="px-5 py-16 md:py-20"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">
@@ -129,8 +186,8 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl text-slate-600">
-              Discover trusted services, memorable experiences and local
-              businesses in one place.
+              Discover trusted services, memorable experiences
+              and local businesses in one place.
             </p>
           </div>
 
@@ -141,7 +198,9 @@ export default function HomePage() {
                 href="/explore"
                 className="group rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-lg"
               >
-                <span className="text-3xl">{category.icon}</span>
+                <span className="text-3xl">
+                  {category.icon}
+                </span>
 
                 <h3 className="mt-4 font-extrabold text-slate-900 group-hover:text-emerald-700">
                   {category.name}
@@ -186,7 +245,9 @@ export default function HomePage() {
                 key={destination.name}
                 className="rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 p-7"
               >
-                <span className="text-5xl">{destination.icon}</span>
+                <span className="text-5xl">
+                  {destination.icon}
+                </span>
 
                 <h3 className="mt-6 text-2xl font-black text-slate-900">
                   {destination.name}
@@ -219,24 +280,30 @@ export default function HomePage() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-300">
-            Showcase your business, receive customer enquiries and become more
-            discoverable to tourists and local residents.
+            Showcase your business, receive customer enquiries
+            and become more discoverable to tourists and local
+            residents.
           </p>
 
-          <button
-            type="button"
-            className="mt-7 rounded-xl bg-emerald-500 px-6 py-3 font-bold text-slate-950 transition hover:bg-emerald-400"
+          <Link
+            href="/owner/register"
+            className="mt-7 inline-block rounded-xl bg-emerald-500 px-6 py-3 font-bold text-slate-950 transition hover:bg-emerald-400"
           >
             List Your Business
-          </button>
+          </Link>
         </div>
       </section>
 
       <footer className="border-t border-slate-200 bg-white px-5 py-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-center text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:text-left">
           <div>
-            <p className="font-extrabold text-emerald-800">Go Nilgiris</p>
-            <p className="mt-1">One Destination. Endless Experiences.</p>
+            <p className="font-extrabold text-emerald-800">
+              Go Nilgiris
+            </p>
+
+            <p className="mt-1">
+              One Destination. Endless Experiences.
+            </p>
           </div>
 
           <p>© 2026 Go Nilgiris. All rights reserved.</p>
