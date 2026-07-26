@@ -381,11 +381,10 @@ export default function OwnerDashboardPage() {
               View enquiries received for your approved
               business listings.
             </p>
-
-            <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              Owner enquiry management will be connected
-              after business approval is completed.
-            </div>
+         <Link href="/owner/enquiries"
+  className="mt-6 inline-block rounded-xl bg-blue-700 px-5 py-3 font-bold text-white transition hover:bg-blue-800">
+  Open My Enquiries
+</Link>
           </article>
         </section>
 
