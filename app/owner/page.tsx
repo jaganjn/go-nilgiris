@@ -33,7 +33,9 @@ export default function OwnerDashboardPage() {
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    if (!firebaseConfigured || !auth) {
+    const ownerAuth = auth;
+
+    if (!firebaseConfigured || !ownerAuth) {
       setError("Firebase is not configured.");
       setPageState("error");
       return;
@@ -42,7 +44,7 @@ export default function OwnerDashboardPage() {
     let cancelled = false;
 
     const unsubscribe = onAuthStateChanged(
-      auth,
+      ownerAuth,
       async (currentUser) => {
         if (!currentUser) {
           router.replace("/owner/login");
@@ -59,7 +61,7 @@ export default function OwnerDashboardPage() {
           }
 
           if (!account) {
-            await signOut(auth);
+            await signOut(ownerAuth);
             router.replace("/owner/login");
             return;
           }
@@ -73,7 +75,7 @@ export default function OwnerDashboardPage() {
           }
 
           if (account.role !== "owner") {
-            await signOut(auth);
+            await signOut(ownerAuth);
             router.replace("/owner/login");
             return;
           }
@@ -114,14 +116,16 @@ export default function OwnerDashboardPage() {
   }, [router]);
 
   async function handleSignOut() {
-    if (!auth) {
+    const ownerAuth = auth;
+
+    if (!ownerAuth) {
       return;
     }
 
     setSigningOut(true);
 
     try {
-      await signOut(auth);
+      await signOut(ownerAuth);
       router.replace("/owner/login");
       router.refresh();
     } catch {
@@ -154,9 +158,9 @@ export default function OwnerDashboardPage() {
           </h1>
 
           <p className="mt-4 leading-7 text-slate-600">
-            Your Go Nilgiris business-owner account is currently
-            suspended. Please contact the administrator for
-            assistance.
+            Your Go Nilgiris business-owner account is
+            currently suspended. Please contact the
+            administrator for assistance.
           </p>
 
           <button
@@ -165,7 +169,9 @@ export default function OwnerDashboardPage() {
             disabled={signingOut}
             className="mt-7 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white disabled:opacity-60"
           >
-            {signingOut ? "Signing Out..." : "Sign Out"}
+            {signingOut
+              ? "Signing Out..."
+              : "Sign Out"}
           </button>
         </section>
       </main>
@@ -211,9 +217,9 @@ export default function OwnerDashboardPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl leading-7 text-emerald-50">
-                Your Go Nilgiris owner account has been approved.
-                You can now manage your business presence and
-                customer enquiries.
+                Your Go Nilgiris owner account has been
+                approved. You can now manage your business
+                presence and customer enquiries.
               </p>
             </div>
 
@@ -223,7 +229,9 @@ export default function OwnerDashboardPage() {
               disabled={signingOut}
               className="rounded-xl border border-white/30 bg-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/20 disabled:opacity-60"
             >
-              {signingOut ? "Signing Out..." : "Sign Out"}
+              {signingOut
+                ? "Signing Out..."
+                : "Sign Out"}
             </button>
           </div>
         </section>
@@ -241,8 +249,8 @@ export default function OwnerDashboardPage() {
             </h2>
 
             <p className="mt-3 leading-7 text-slate-600">
-              Submit your business details for review and make
-              your business discoverable on Go Nilgiris.
+              Submit your business details for review and
+              make your business discoverable on Go Nilgiris.
             </p>
 
             <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
@@ -262,13 +270,13 @@ export default function OwnerDashboardPage() {
             </h2>
 
             <p className="mt-3 leading-7 text-slate-600">
-              View and respond to enquiries received from tourists
-              and local customers.
+              View and respond to enquiries received from
+              tourists and local customers.
             </p>
 
             <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              Owner enquiry management will be added after the
-              business submission system.
+              Owner enquiry management will be added after
+              the business submission system.
             </div>
           </article>
         </section>
