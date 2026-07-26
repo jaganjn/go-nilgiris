@@ -7,18 +7,53 @@ import {
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
 import { getAccountProfile } from "@/lib/accounts";
+import { listOwnerBusinesses } from "@/lib/businesses";
 import {
   auth,
   firebaseConfigured,
 } from "@/lib/firebase";
+
 import type { AccountProfile } from "@/types/account";
+import type {
+  Business,
+  BusinessApprovalStatus,
+} from "@/types/business";
 
 type PageState =
   | "checking"
   | "allowed"
   | "suspended"
   | "error";
+
+function statusLabel(
+  status?: BusinessApprovalStatus
+) {
+  if (status === "approved") {
+    return "Approved";
+  }
+
+  if (status === "rejected") {
+    return "Rejected";
+  }
+
+  return "Pending Approval";
+}
+
+function statusClass(
+  status?: BusinessApprovalStatus
+) {
+  if (status === "approved") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (status === "rejected") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-800";
+}
 
 export default function OwnerDashboardPage() {
   const router = useRouter();
@@ -29,8 +64,12 @@ export default function OwnerDashboardPage() {
   const [profile, setProfile] =
     useState<AccountProfile | null>(null);
 
+  const [businesses, setBusinesses] =
+    useState<Business[]>([]);
+
   const [error, setError] = useState("");
-  const [signingOut, setSigningOut] = useState(false);
+  const [signingOut, setSigningOut] =
+    useState(false);
 
   useEffect(() => {
     const ownerAuth = auth;
@@ -91,7 +130,15 @@ export default function OwnerDashboardPage() {
             return;
           }
 
+          const ownerBusinesses =
+            await listOwnerBusinesses(account.uid);
+
+          if (cancelled) {
+            return;
+          }
+
           setProfile(account);
+          setBusinesses(ownerBusinesses);
           setPageState("allowed");
         } catch (caught) {
           if (cancelled) {
@@ -101,7 +148,7 @@ export default function OwnerDashboardPage() {
           setError(
             caught instanceof Error
               ? caught.message
-              : "Unable to load owner account."
+              : "Unable to load owner dashboard."
           );
 
           setPageState("error");
@@ -132,6 +179,22 @@ export default function OwnerDashboardPage() {
       setSigningOut(false);
     }
   }
+
+  const pendingCount = businesses.filter(
+    (business) =>
+      !business.approvalStatus ||
+      business.approvalStatus === "pending"
+  ).length;
+
+  const approvedCount = businesses.filter(
+    (business) =>
+      business.approvalStatus === "approved"
+  ).length;
+
+  const rejectedCount = businesses.filter(
+    (business) =>
+      business.approvalStatus === "rejected"
+  ).length;
 
   if (pageState === "checking") {
     return (
@@ -217,9 +280,8 @@ export default function OwnerDashboardPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl leading-7 text-emerald-50">
-                Your Go Nilgiris owner account has been
-                approved. You can now manage your business
-                presence and customer enquiries.
+                Manage your Go Nilgiris business listings
+                and track their approval status.
               </p>
             </div>
 
@@ -236,6 +298,48 @@ export default function OwnerDashboardPage() {
           </div>
         </section>
 
+        <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Total Listings
+            </p>
+
+            <p className="mt-2 text-3xl font-black">
+              {businesses.length}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <p className="text-sm font-semibold text-amber-700">
+              Pending
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-amber-800">
+              {pendingCount}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+            <p className="text-sm font-semibold text-emerald-700">
+              Approved
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-emerald-800">
+              {approvedCount}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+            <p className="text-sm font-semibold text-red-700">
+              Rejected
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-red-800">
+              {rejectedCount}
+            </p>
+          </div>
+        </section>
+
         <section className="mt-7 grid gap-5 md:grid-cols-2">
           <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
             <div className="text-4xl">🏪</div>
@@ -249,13 +353,17 @@ export default function OwnerDashboardPage() {
             </h2>
 
             <p className="mt-3 leading-7 text-slate-600">
-              Submit your business details for review and
-              make your business discoverable on Go Nilgiris.
+              Submit your business details for admin review.
+              Approved listings will appear publicly on Go
+              Nilgiris.
             </p>
 
-            <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              Business submission form will be added next.
-            </div>
+            <Link
+              href="/owner/businesses/new"
+              className="mt-6 inline-block rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white transition hover:bg-emerald-800"
+            >
+              Submit New Business
+            </Link>
           </article>
 
           <article className="rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
@@ -270,15 +378,136 @@ export default function OwnerDashboardPage() {
             </h2>
 
             <p className="mt-3 leading-7 text-slate-600">
-              View and respond to enquiries received from
-              tourists and local customers.
+              View enquiries received for your approved
+              business listings.
             </p>
 
             <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              Owner enquiry management will be added after
-              the business submission system.
+              Owner enquiry management will be connected
+              after business approval is completed.
             </div>
           </article>
+        </section>
+
+        <section className="mt-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-2xl font-black">
+                My Business Listings
+              </h2>
+
+              <p className="mt-1 text-slate-500">
+                Check the current approval status of your
+                submissions.
+              </p>
+            </div>
+
+            <Link
+              href="/owner/businesses/new"
+              className="rounded-xl bg-emerald-700 px-5 py-3 text-center font-bold text-white"
+            >
+              + Add Business
+            </Link>
+          </div>
+
+          {businesses.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+              <div className="text-5xl">🏪</div>
+
+              <h3 className="mt-4 text-xl font-black">
+                No business submitted yet
+              </h3>
+
+              <p className="mt-2 text-slate-500">
+                Submit your first business to begin the
+                approval process.
+              </p>
+
+              <Link
+                href="/owner/businesses/new"
+                className="mt-5 inline-block rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white"
+              >
+                Submit Your Business
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {businesses.map((business) => (
+                <article
+                  key={business.id}
+                  className="rounded-2xl border border-slate-200 p-5"
+                >
+                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-3xl">
+                          {business.icon || "📍"}
+                        </span>
+
+                        <div>
+                          <h3 className="text-xl font-black">
+                            {business.name}
+                          </h3>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            {business.category} •{" "}
+                            {business.location}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`w-fit rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
+                        business.approvalStatus
+                      )}`}
+                    >
+                      {statusLabel(
+                        business.approvalStatus
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 line-clamp-3 leading-7 text-slate-600">
+                    {business.description}
+                  </p>
+
+                  {business.approvalStatus ===
+                    "rejected" &&
+                    business.rejectionReason && (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <p className="font-bold">
+                          Rejection reason
+                        </p>
+
+                        <p className="mt-1">
+                          {business.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+
+                  {business.approvalStatus ===
+                    "pending" ||
+                  !business.approvalStatus ? (
+                    <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                      Your listing is awaiting administrator
+                      review.
+                    </div>
+                  ) : null}
+
+                  {business.approvalStatus ===
+                    "approved" && (
+                    <Link
+                      href={`/business/${business.id}`}
+                      className="mt-5 inline-block rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800"
+                    >
+                      View Public Listing
+                    </Link>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="mt-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
