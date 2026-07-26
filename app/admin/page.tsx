@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { signOut } from "firebase/auth";
 import { useEffect, useState } from "react";
+
 import AdminGuard from "@/components/AdminGuard";
 import {
   listBusinesses,
@@ -12,15 +13,20 @@ import {
   auth,
   firebaseConfigured,
 } from "@/lib/firebase";
+
 import type { Business } from "@/types/business";
 
 export default function AdminPage() {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businesses, setBusinesses] = useState<
+    Business[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   async function load() {
     setLoading(true);
+    setMessage("");
 
     try {
       const data = await listBusinesses();
@@ -41,13 +47,21 @@ export default function AdminPage() {
   }, []);
 
   async function remove(id: string) {
-    if (!confirm("Delete this business permanently?")) {
+    const confirmed = window.confirm(
+      "Delete this business permanently?"
+    );
+
+    if (!confirmed) {
       return;
     }
 
     try {
       await removeBusiness(id);
-      setMessage("Business deleted successfully.");
+
+      setMessage(
+        "Business deleted successfully."
+      );
+
       await load();
     } catch (error) {
       setMessage(
@@ -56,6 +70,17 @@ export default function AdminPage() {
           : "Unable to delete business."
       );
     }
+  }
+
+  async function handleSignOut() {
+    const adminAuth = auth;
+
+    if (!adminAuth) {
+      return;
+    }
+
+    await signOut(adminAuth);
+    window.location.href = "/admin/login";
   }
 
   return (
@@ -69,7 +94,8 @@ export default function AdminPage() {
               </p>
 
               <p className="text-sm text-slate-500">
-                Manage businesses and customer enquiries
+                Manage owners, businesses and customer
+                enquiries
               </p>
             </div>
 
@@ -82,6 +108,20 @@ export default function AdminPage() {
               </Link>
 
               <Link
+                href="/admin/approvals"
+                className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800"
+              >
+                Owner Approvals
+              </Link>
+
+              <Link
+                href="/admin/business-approvals"
+                className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800"
+              >
+                Business Approvals
+              </Link>
+
+              <Link
                 href="/admin/enquiries"
                 className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800"
               >
@@ -91,7 +131,7 @@ export default function AdminPage() {
               {firebaseConfigured && (
                 <button
                   type="button"
-                  onClick={() => auth && signOut(auth)}
+                  onClick={handleSignOut}
                   className="rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700"
                 >
                   Sign Out
@@ -110,14 +150,59 @@ export default function AdminPage() {
                 </p>
 
                 <p className="mt-1 text-sm">
-                  Add Firebase environment variables, enable
-                  Email/Password Authentication and create a
-                  Firestore Database to activate admin features.
+                  Add Firebase environment variables,
+                  enable Email/Password Authentication and
+                  create a Firestore Database to activate
+                  admin features.
                 </p>
               </div>
             )}
 
-            <div className="mb-7 grid gap-4 sm:grid-cols-2">
+            <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Link
+                href="/admin/approvals"
+                className="rounded-3xl border border-amber-200 bg-amber-50 p-6 transition hover:border-amber-400 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-widest text-amber-700">
+                  Owner Accounts
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black text-slate-900">
+                  Owner Approvals
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Review, approve or suspend registered
+                  business-owner accounts.
+                </p>
+
+                <p className="mt-4 font-bold text-amber-700">
+                  Review Owners →
+                </p>
+              </Link>
+
+              <Link
+                href="/admin/business-approvals"
+                className="rounded-3xl border border-purple-200 bg-purple-50 p-6 transition hover:border-purple-400 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-widest text-purple-700">
+                  Owner Listings
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black text-slate-900">
+                  Business Approvals
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Review business listings submitted by
+                  approved owners.
+                </p>
+
+                <p className="mt-4 font-bold text-purple-700">
+                  Review Businesses →
+                </p>
+              </Link>
+
               <Link
                 href="/admin/enquiries"
                 className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 transition hover:border-emerald-400 hover:shadow-md"
@@ -131,8 +216,8 @@ export default function AdminPage() {
                 </h2>
 
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  View customer requirements, contact customers and
-                  update enquiry status.
+                  View customer requirements, contact
+                  customers and update enquiry status.
                 </p>
 
                 <p className="mt-4 font-bold text-emerald-700">
@@ -153,8 +238,8 @@ export default function AdminPage() {
                 </h2>
 
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Create a new hotel, homestay, restaurant, taxi,
-                  shopping or tourist-place listing.
+                  Create a hotel, homestay, restaurant,
+                  taxi, shopping or tourist-place listing.
                 </p>
 
                 <p className="mt-4 font-bold text-blue-700">
@@ -170,11 +255,12 @@ export default function AdminPage() {
                 </p>
 
                 <h1 className="mt-2 text-3xl font-black">
-                  Businesses
+                  Public Businesses
                 </h1>
 
                 <p className="mt-2 text-slate-500">
-                  {businesses.length} listings available
+                  {businesses.length} approved listings
+                  available
                 </p>
               </div>
 
@@ -204,8 +290,8 @@ export default function AdminPage() {
                   </p>
 
                   <p className="mt-2 text-slate-500">
-                    Add your first business listing from the Admin
-                    Dashboard.
+                    Add your first business listing from
+                    the Admin Dashboard.
                   </p>
                 </div>
               ) : (
@@ -224,7 +310,7 @@ export default function AdminPage() {
                           />
                         ) : (
                           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-3xl">
-                            {business.icon}
+                            {business.icon || "📍"}
                           </div>
                         )}
 
@@ -245,10 +331,18 @@ export default function AdminPage() {
                                 Featured
                               </span>
                             )}
+
+                            {business.submittedBy ===
+                              "owner" && (
+                              <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700">
+                                Owner Submitted
+                              </span>
+                            )}
                           </div>
 
                           <p className="mt-1 text-sm text-slate-500">
-                            {business.category} · {business.location}
+                            {business.category} {" - "}
+                            {business.location}
                           </p>
                         </div>
                       </div>
@@ -271,7 +365,9 @@ export default function AdminPage() {
                         <button
                           type="button"
                           disabled={!firebaseConfigured}
-                          onClick={() => remove(business.id)}
+                          onClick={() =>
+                            remove(business.id)
+                          }
                           className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 disabled:opacity-40"
                         >
                           Delete
