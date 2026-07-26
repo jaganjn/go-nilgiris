@@ -268,7 +268,7 @@ export default function BusinessApprovalsPage() {
                 href="/admin"
                 className="rounded-xl bg-emerald-700 px-5 py-3 text-center font-bold text-white"
               >
-                鈫� Admin Dashboard
+                ← Admin Dashboard
               </Link>
             </div>
           </div>
@@ -333,7 +333,7 @@ export default function BusinessApprovalsPage() {
             </div>
           ) : businesses.length === 0 ? (
             <div className="mt-7 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-              <div className="text-6xl">馃彧</div>
+              <div className="text-6xl">🏪</div>
 
               <h2 className="mt-5 text-2xl font-black">
                 No owner business submissions
@@ -368,7 +368,7 @@ export default function BusinessApprovalsPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-3">
                             <span className="text-4xl">
-                              {business.icon || "馃搷"}
+                              {business.icon || "📍"}
                             </span>
 
                             <div>
@@ -377,7 +377,7 @@ export default function BusinessApprovalsPage() {
                               </h2>
 
                               <p className="mt-1 text-slate-500">
-                                {business.category} 鈥" "}
+                                {business.category} {" - "}
                                 {business.location}
                               </p>
                             </div>
@@ -519,7 +519,7 @@ export default function BusinessApprovalsPage() {
                                   key={`${highlight}-${index}`}
                                   className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"
                                 >
-                                  鉁� {highlight}
+                                  ✓ {highlight}
                                 </span>
                               )
                             )}
@@ -541,7 +541,7 @@ export default function BusinessApprovalsPage() {
                                   key={`${item}-${index}`}
                                   className="rounded-xl bg-slate-50 px-4 py-3"
                                 >
-                                  鈥� {item}
+                                  • {item}
                                 </li>
                               )
                             )}
