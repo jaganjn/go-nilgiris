@@ -74,8 +74,10 @@ export async function createEnquiry(
     collection(db, collectionName),
     {
       businessId: input.businessId,
-      businessName: input.businessName.trim(),
-      customerName: input.customerName.trim(),
+      businessName:
+        input.businessName.trim(),
+      customerName:
+        input.customerName.trim(),
       phone: input.phone.trim(),
       email: input.email?.trim() || "",
       serviceDate: input.serviceDate || "",
@@ -119,6 +121,8 @@ export async function listOwnerEnquiries(
     return [];
   }
 
+  const firestoreDb = db;
+
   const uniqueBusinessIds = Array.from(
     new Set(
       businessIds
@@ -133,7 +137,10 @@ export async function listOwnerEnquiries(
     uniqueBusinessIds.map(
       async (businessId) => {
         const ownerEnquiryQuery = query(
-          collection(db, collectionName),
+          collection(
+            firestoreDb,
+            collectionName
+          ),
           where(
             "businessId",
             "==",
@@ -141,7 +148,9 @@ export async function listOwnerEnquiries(
           )
         );
 
-        return getDocs(ownerEnquiryQuery);
+        return getDocs(
+          ownerEnquiryQuery
+        );
       }
     )
   );
