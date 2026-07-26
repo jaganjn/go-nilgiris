@@ -59,9 +59,53 @@ function isPublicBusiness(
 export async function listBusinesses(): Promise<
   Business[]
 > {
-  const businesses = await listAllBusinesses();
+  if (!firebaseConfigured || !db) {
+    return seedBusinesses;
+  }
 
-  return businesses.filter(isPublicBusiness);
+  const firestoreDb = db;
+
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(
+          firestoreDb,
+          collectionName
+        ),
+        where(
+          "approvalStatus",
+          "==",
+          "approved"
+        )
+      )
+    );
+
+    const approvedFirestoreBusinesses =
+      snapshot.docs.map(mapBusiness);
+
+    const firestoreBusinessIds = new Set(
+      approvedFirestoreBusinesses.map(
+        (business) => business.id
+      )
+    );
+
+    const remainingSeedBusinesses =
+      seedBusinesses.filter(
+        (business) =>
+          !firestoreBusinessIds.has(
+            business.id
+          )
+      );
+
+    return [
+      ...approvedFirestoreBusinesses,
+      ...remainingSeedBusinesses,
+    ].sort((first, second) =>
+      first.name.localeCompare(second.name)
+    );
+  } catch {
+    return seedBusinesses;
+  }
 }
 
 export async function listAllBusinesses(): Promise<
@@ -71,10 +115,15 @@ export async function listAllBusinesses(): Promise<
     return seedBusinesses;
   }
 
+  const firestoreDb = db;
+
   try {
     const snapshot = await getDocs(
       query(
-        collection(db, collectionName),
+        collection(
+          firestoreDb,
+          collectionName
+        ),
         orderBy("name")
       )
     );
@@ -91,7 +140,9 @@ export async function listAllBusinesses(): Promise<
     const remainingSeedBusinesses =
       seedBusinesses.filter(
         (business) =>
-          !firestoreBusinessIds.has(business.id)
+          !firestoreBusinessIds.has(
+            business.id
+          )
       );
 
     return [
@@ -108,15 +159,28 @@ export async function listAllBusinesses(): Promise<
 export async function listOwnerBusinesses(
   ownerId: string
 ): Promise<Business[]> {
-  if (!firebaseConfigured || !db || !ownerId) {
+  if (
+    !firebaseConfigured ||
+    !db ||
+    !ownerId
+  ) {
     return [];
   }
+
+  const firestoreDb = db;
 
   try {
     const snapshot = await getDocs(
       query(
-        collection(db, collectionName),
-        where("ownerId", "==", ownerId)
+        collection(
+          firestoreDb,
+          collectionName
+        ),
+        where(
+          "ownerId",
+          "==",
+          ownerId
+        )
       )
     );
 
@@ -133,7 +197,8 @@ export async function listOwnerBusinesses(
 export async function getBusiness(
   id: string
 ): Promise<Business | null> {
-  const canonicalId = businessAliases[id] ?? id;
+  const canonicalId =
+    businessAliases[id] ?? id;
 
   if (!firebaseConfigured || !db) {
     return (
@@ -144,10 +209,12 @@ export async function getBusiness(
     );
   }
 
+  const firestoreDb = db;
+
   try {
     const snapshot = await getDoc(
       doc(
-        db,
+        firestoreDb,
         collectionName,
         canonicalId
       )
@@ -195,6 +262,7 @@ export async function saveBusiness(
     );
   }
 
+  const firestoreDb = db;
   const businessId = input.id.trim();
 
   if (!businessId) {
@@ -204,7 +272,7 @@ export async function saveBusiness(
   }
 
   const businessReference = doc(
-    db,
+    firestoreDb,
     collectionName,
     businessId
   );
@@ -258,6 +326,7 @@ export async function submitOwnerBusiness(
     );
   }
 
+  const firestoreDb = db;
   const businessId = input.id.trim();
 
   if (!businessId) {
@@ -267,7 +336,7 @@ export async function submitOwnerBusiness(
   }
 
   const businessReference = doc(
-    db,
+    firestoreDb,
     collectionName,
     businessId
   );
@@ -334,9 +403,11 @@ export async function updateBusinessApproval(
     );
   }
 
+  const firestoreDb = db;
+
   await updateDoc(
     doc(
-      db,
+      firestoreDb,
       collectionName,
       businessId
     ),
@@ -362,9 +433,11 @@ export async function removeBusiness(
     );
   }
 
+  const firestoreDb = db;
+
   await deleteDoc(
     doc(
-      db,
+      firestoreDb,
       collectionName,
       id
     )
