@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import AdminGuard from "@/components/AdminGuard";
+import { getAccountProfile } from "@/lib/accounts";
 import {
   listAllBusinesses,
   updateBusinessApproval,
@@ -73,10 +74,51 @@ function formatDate(value: unknown) {
   });
 }
 
+function getWhatsAppPhone(phone: string) {
+  let cleanPhone = phone.replace(/\D/g, "");
+
+  if (
+    cleanPhone.length === 11 &&
+    cleanPhone.startsWith("0")
+  ) {
+    cleanPhone = cleanPhone.slice(1);
+  }
+
+  if (cleanPhone.length === 10) {
+    cleanPhone = `91${cleanPhone}`;
+  }
+
+  return cleanPhone;
+}
+
+function getBusinessApprovalMessage(
+  ownerName: string,
+  businessName: string,
+  businessId: string
+) {
+  return `Hello ${ownerName},
+
+Your business listing "${businessName}" has been approved successfully on Go Nilgiris.
+
+Your business is now publicly visible here:
+
+https://go-nilgiris-pearl.vercel.app/business/${businessId}
+
+You can log in to your owner dashboard to view and manage your listing:
+
+https://go-nilgiris-pearl.vercel.app/owner/login
+
+- Go Nilgiris Team`;
+}
+
 export default function BusinessApprovalsPage() {
   const [businesses, setBusinesses] = useState<
     Business[]
   >([]);
+
+  const [ownerPhones, setOwnerPhones] = useState<
+    Record<string, string>
+  >({});
 
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState("");
@@ -118,6 +160,33 @@ export default function BusinessApprovalsPage() {
           );
         });
 
+      const uniqueOwnerIds = Array.from(
+        new Set(
+          ownerSubmissions
+            .map((business) => business.ownerId)
+            .filter(
+              (ownerId): ownerId is string =>
+                Boolean(ownerId)
+            )
+        )
+      );
+
+      const profiles = await Promise.all(
+        uniqueOwnerIds.map(async (ownerId) => ({
+          ownerId,
+          profile: await getAccountProfile(ownerId),
+        }))
+      );
+
+      const phoneMap: Record<string, string> = {};
+
+      profiles.forEach(({ ownerId, profile }) => {
+        if (profile?.phone) {
+          phoneMap[ownerId] = profile.phone;
+        }
+      });
+
+      setOwnerPhones(phoneMap);
       setBusinesses(ownerSubmissions);
     } catch (caught) {
       setError(
@@ -196,7 +265,7 @@ export default function BusinessApprovalsPage() {
 
       if (approvalStatus === "approved") {
         setMessage(
-          `${business.name} has been approved and is now publicly visible.`
+          `${business.name} has been approved. You can now send the approval WhatsApp message to the owner.`
         );
       } else if (approvalStatus === "rejected") {
         setMessage(
@@ -350,6 +419,21 @@ export default function BusinessApprovalsPage() {
                 const phone =
                   business.phones?.[0]?.number || "";
 
+                const ownerPhone = business.ownerId
+                  ? ownerPhones[business.ownerId] || ""
+                  : "";
+
+                const whatsappPhone =
+                  getWhatsAppPhone(ownerPhone);
+
+                const approvalMessage =
+                  getBusinessApprovalMessage(
+                    business.ownerName ||
+                      "Business Owner",
+                    business.name,
+                    business.id
+                  );
+
                 return (
                   <article
                     key={business.id}
@@ -425,6 +509,25 @@ export default function BusinessApprovalsPage() {
                               className="mt-2 block break-all font-bold text-emerald-700 hover:underline"
                             >
                               {business.ownerEmail}
+                            </a>
+                          ) : (
+                            <p className="mt-2 text-slate-500">
+                              Not available
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Owner Phone
+                          </p>
+
+                          {ownerPhone ? (
+                            <a
+                              href={`tel:${ownerPhone}`}
+                              className="mt-2 block font-bold text-emerald-700 hover:underline"
+                            >
+                              {ownerPhone}
                             </a>
                           ) : (
                             <p className="mt-2 text-slate-500">
@@ -650,6 +753,21 @@ export default function BusinessApprovalsPage() {
                             Move to Pending
                           </button>
                         )}
+
+                        {business.approvalStatus ===
+                          "approved" &&
+                          whatsappPhone && (
+                            <a
+                              href={`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(
+                                approvalMessage
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-xl bg-green-600 px-5 py-3 font-bold text-white transition hover:bg-green-700"
+                            >
+                              Send Approval WhatsApp
+                            </a>
+                          )}
 
                         {business.approvalStatus ===
                           "approved" && (
