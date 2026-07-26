@@ -381,10 +381,10 @@ export default function OwnerDashboardPage() {
               View enquiries received for your approved
               business listings.
             </p>
-         <Link href="/owner/enquiries"
+            <Link href="/owner/enquiries"
   className="mt-6 inline-block rounded-xl bg-blue-700 px-5 py-3 font-bold text-white transition hover:bg-blue-800">
   Open My Enquiries
-</Link>
+            </Link>
           </article>
         </section>
 
