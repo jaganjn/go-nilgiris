@@ -194,13 +194,19 @@ export default function BusinessApprovalsPage() {
         )
       );
 
-      setMessage(
-        approvalStatus === "approved"
-          ? `${business.name} has been approved and is now publicly visible.`
-          : approvalStatus === "rejected"
-            ? `${business.name} has been rejected.`
-            : `${business.name} has been moved back to pending.`
-      );
+      if (approvalStatus === "approved") {
+        setMessage(
+          `${business.name} has been approved and is now publicly visible.`
+        );
+      } else if (approvalStatus === "rejected") {
+        setMessage(
+          `${business.name} has been rejected.`
+        );
+      } else {
+        setMessage(
+          `${business.name} has been moved back to pending approval.`
+        );
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -262,7 +268,7 @@ export default function BusinessApprovalsPage() {
                 href="/admin"
                 className="rounded-xl bg-emerald-700 px-5 py-3 text-center font-bold text-white"
               >
-                ← Admin Dashboard
+                鈫� Admin Dashboard
               </Link>
             </div>
           </div>
@@ -327,7 +333,7 @@ export default function BusinessApprovalsPage() {
             </div>
           ) : businesses.length === 0 ? (
             <div className="mt-7 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-              <div className="text-6xl">🏪</div>
+              <div className="text-6xl">馃彧</div>
 
               <h2 className="mt-5 text-2xl font-black">
                 No owner business submissions
@@ -362,7 +368,7 @@ export default function BusinessApprovalsPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-3">
                             <span className="text-4xl">
-                              {business.icon || "📍"}
+                              {business.icon || "馃搷"}
                             </span>
 
                             <div>
@@ -371,7 +377,7 @@ export default function BusinessApprovalsPage() {
                               </h2>
 
                               <p className="mt-1 text-slate-500">
-                                {business.category} •{" "}
+                                {business.category} 鈥" "}
                                 {business.location}
                               </p>
                             </div>
@@ -452,7 +458,8 @@ export default function BusinessApprovalsPage() {
                           </p>
 
                           <p className="mt-2 font-bold">
-                            {business.openingHours}
+                            {business.openingHours ||
+                              "Not provided"}
                           </p>
                         </div>
                       </div>
@@ -485,9 +492,9 @@ export default function BusinessApprovalsPage() {
 
                           <div className="mt-3 flex flex-wrap gap-2">
                             {business.services.map(
-                              (service) => (
+                              (service, index) => (
                                 <span
-                                  key={service}
+                                  key={`${service}-${index}`}
                                   className="rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800"
                                 >
                                   {service}
@@ -507,16 +514,68 @@ export default function BusinessApprovalsPage() {
 
                           <div className="mt-3 flex flex-wrap gap-2">
                             {business.highlights.map(
-                              (highlight) => (
+                              (highlight, index) => (
                                 <span
-                                  key={highlight}
+                                  key={`${highlight}-${index}`}
                                   className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"
                                 >
-                                  ✓ {highlight}
+                                  鉁� {highlight}
                                 </span>
                               )
                             )}
                           </div>
+                        </div>
+                      )}
+
+                      {business.additionalInfo?.length >
+                        0 && (
+                        <div className="mt-6">
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Additional Information
+                          </p>
+
+                          <ul className="mt-3 space-y-2 text-slate-700">
+                            {business.additionalInfo.map(
+                              (item, index) => (
+                                <li
+                                  key={`${item}-${index}`}
+                                  className="rounded-xl bg-slate-50 px-4 py-3"
+                                >
+                                  鈥� {item}
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                      {business.website && (
+                        <div className="mt-6">
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Website
+                          </p>
+
+                          <a
+                            href={business.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 block break-all font-bold text-emerald-700 hover:underline"
+                          >
+                            {business.website}
+                          </a>
+                        </div>
+                      )}
+
+                      {business.maps && (
+                        <div className="mt-6">
+                          <a
+                            href={business.maps}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800"
+                          >
+                            Open Google Maps
+                          </a>
                         </div>
                       )}
 
@@ -548,7 +607,7 @@ export default function BusinessApprovalsPage() {
                                 "approved"
                               )
                             }
-                            className="rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-50"
+                            className="rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Approve Business
                           </button>
@@ -567,7 +626,7 @@ export default function BusinessApprovalsPage() {
                                 "rejected"
                               )
                             }
-                            className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-bold text-red-700 disabled:opacity-50"
+                            className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Reject Business
                           </button>
@@ -586,7 +645,7 @@ export default function BusinessApprovalsPage() {
                                 "pending"
                               )
                             }
-                            className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 font-bold text-amber-800 disabled:opacity-50"
+                            className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 font-bold text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Move to Pending
                           </button>
@@ -598,4 +657,25 @@ export default function BusinessApprovalsPage() {
                             href={`/business/${business.id}`}
                             target="_blank"
                             className="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-3 font-bold text-emerald-800"
-           
+                          >
+                            View Public Listing
+                          </Link>
+                        )}
+                      </div>
+
+                      {updatingId === business.id && (
+                        <p className="mt-4 text-sm font-bold text-slate-500">
+                          Updating approval status...
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </main>
+    </AdminGuard>
+  );
+}
