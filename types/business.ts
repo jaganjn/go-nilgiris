@@ -3,6 +3,15 @@ export type BusinessPhone = {
   number: string;
 };
 
+export type BusinessApprovalStatus =
+  | "pending"
+  | "approved"
+  | "rejected";
+
+export type BusinessSubmittedBy =
+  | "admin"
+  | "owner";
+
 export type Business = {
   id: string;
   name: string;
@@ -22,8 +31,19 @@ export type Business = {
   images: string[];
   verified: boolean;
   featured: boolean;
+
+  ownerId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  submittedBy?: BusinessSubmittedBy;
+  approvalStatus?: BusinessApprovalStatus;
+  rejectionReason?: string;
+
   createdAt?: unknown;
   updatedAt?: unknown;
 };
 
-export type BusinessInput = Omit<Business, "createdAt" | "updatedAt">;
+export type BusinessInput = Omit<
+  Business,
+  "createdAt" | "updatedAt"
+>;
