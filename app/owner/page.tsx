@@ -381,9 +381,12 @@ export default function OwnerDashboardPage() {
               View enquiries received for your approved
               business listings.
             </p>
-            <Link href="/owner/enquiries"
-  className="mt-6 inline-block rounded-xl bg-blue-700 px-5 py-3 font-bold text-white transition hover:bg-blue-800">
-  Open My Enquiries
+
+            <Link
+              href="/owner/enquiries"
+              className="mt-6 inline-block rounded-xl bg-blue-700 px-5 py-3 font-bold text-white transition hover:bg-blue-800"
+            >
+              Open My Enquiries
             </Link>
           </article>
         </section>
@@ -449,7 +452,8 @@ export default function OwnerDashboardPage() {
                           </h3>
 
                           <p className="mt-1 text-sm text-slate-500">
-                            {business.category} •{" "}
+                            {business.category}
+                            {" - "}
                             {business.location}
                           </p>
                         </div>
@@ -495,13 +499,56 @@ export default function OwnerDashboardPage() {
                   ) : null}
 
                   {business.approvalStatus ===
+                    "approved" &&
+                    business.updateApprovalStatus ===
+                      "pending" && (
+                      <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                        <p className="font-bold">
+                          Update awaiting approval
+                        </p>
+
+                        <p className="mt-1 leading-6">
+                          Your latest changes were submitted
+                          to the administrator. The currently
+                          approved information remains public
+                          until the update is approved.
+                        </p>
+                      </div>
+                    )}
+
+                  {business.approvalStatus ===
+                    "approved" &&
+                    business.updateApprovalStatus ===
+                      "rejected" && (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <p className="font-bold">
+                          Latest update rejected
+                        </p>
+
+                        <p className="mt-1 leading-6">
+                          {business.updateRejectionReason ||
+                            "The administrator rejected the latest update request. You can edit the business and submit it again."}
+                        </p>
+                      </div>
+                    )}
+
+                  {business.approvalStatus ===
                     "approved" && (
-                    <Link
-                      href={`/business/${business.id}`}
-                      className="mt-5 inline-block rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800"
-                    >
-                      View Public Listing
-                    </Link>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <Link
+                        href={`/business/${business.id}`}
+                        className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-center text-sm font-bold text-emerald-800"
+                      >
+                        View Public Listing
+                      </Link>
+
+                      <Link
+                        href={`/owner/businesses/${business.id}/edit`}
+                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-slate-800"
+                      >
+                        Edit Business
+                      </Link>
+                    </div>
                   )}
                 </article>
               ))}
