@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import {
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
 
 import { submitOwnerBusiness } from "@/lib/businesses";
+import { uploadBusinessImage } from "@/lib/cloudinaryUpload";
 import { firebaseConfigured } from "@/lib/firebase";
 
 import type { AccountProfile } from "@/types/account";
@@ -15,6 +17,8 @@ import type { BusinessInput } from "@/types/business";
 type OwnerBusinessFormProps = {
   owner: AccountProfile;
 };
+
+const maximumImages = 6;
 
 const splitLines = (value: string) =>
   value
@@ -55,8 +59,17 @@ export default function OwnerBusinessForm({
   const router = useRouter();
 
   const [form, setForm] = useState(initialForm);
+
   const [slugEditedManually, setSlugEditedManually] =
     useState(false);
+
+  const [uploadedImages, setUploadedImages] =
+    useState<string[]>([]);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] =
+    useState("");
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -95,11 +108,121 @@ export default function OwnerBusinessForm({
     setError("");
   }
 
+  async function handleImageUpload(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const files = Array.from(
+      event.target.files ?? []
+    );
+
+    event.target.value = "";
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const remainingSlots =
+      maximumImages - uploadedImages.length;
+
+    if (remainingSlots <= 0) {
+      setError(
+        `You can upload a maximum of ${maximumImages} images.`
+      );
+      return;
+    }
+
+    if (files.length > remainingSlots) {
+      setError(
+        `You can select only ${remainingSlots} more image${
+          remainingSlots === 1 ? "" : "s"
+        }.`
+      );
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setUploadMessage("");
+
+    let completedUploads = 0;
+
+    try {
+      for (
+        let index = 0;
+        index < files.length;
+        index += 1
+      ) {
+        const file = files[index];
+
+        setUploadMessage(
+          `Uploading image ${index + 1} of ${
+            files.length
+          }...`
+        );
+
+        const imageUrl =
+          await uploadBusinessImage(file);
+
+        setUploadedImages((current) =>
+          current.includes(imageUrl)
+            ? current
+            : [...current, imageUrl]
+        );
+
+        completedUploads += 1;
+      }
+
+      setUploadMessage(
+        `${completedUploads} image${
+          completedUploads === 1 ? "" : "s"
+        } uploaded successfully.`
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to upload the selected image."
+      );
+
+      if (completedUploads > 0) {
+        setUploadMessage(
+          `${completedUploads} image${
+            completedUploads === 1 ? "" : "s"
+          } uploaded before the error occurred.`
+        );
+      } else {
+        setUploadMessage("");
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeUploadedImage(
+    imageUrl: string
+  ) {
+    setUploadedImages((current) =>
+      current.filter(
+        (image) => image !== imageUrl
+      )
+    );
+
+    setUploadMessage("");
+    setError("");
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
     setError("");
+
+    if (uploading) {
+      setError(
+        "Please wait until all selected images finish uploading."
+      );
+      return;
+    }
 
     if (!firebaseConfigured) {
       setError(
@@ -148,15 +271,31 @@ export default function OwnerBusinessForm({
       return;
     }
 
-    const images = splitLines(form.images);
+    const manualImages = splitLines(
+      form.images
+    );
 
-    const invalidImage = images.find(
+    const invalidImage = manualImages.find(
       (image) => !/^https:\/\//i.test(image)
     );
 
     if (invalidImage) {
       setError(
         "Business image links must begin with https://"
+      );
+      return;
+    }
+
+    const images = Array.from(
+      new Set([
+        ...uploadedImages,
+        ...manualImages,
+      ])
+    );
+
+    if (images.length > maximumImages) {
+      setError(
+        `A business can have a maximum of ${maximumImages} images.`
       );
       return;
     }
@@ -168,15 +307,19 @@ export default function OwnerBusinessForm({
       icon: form.icon.trim() || "📍",
       location: form.location.trim(),
       address: form.address.trim(),
+
       openingHours:
         form.openingHours.trim() ||
         "Contact business for timings",
+
       description: form.description.trim(),
 
       phones: [
         {
           label:
-            form.phoneLabel.trim() || "Phone",
+            form.phoneLabel.trim() ||
+            "Phone",
+
           number: form.phone.trim(),
         },
       ],
@@ -185,11 +328,18 @@ export default function OwnerBusinessForm({
       website: form.website.trim(),
       maps: form.maps.trim(),
 
-      services: splitLines(form.services),
-      highlights: splitLines(form.highlights),
+      services: splitLines(
+        form.services
+      ),
+
+      highlights: splitLines(
+        form.highlights
+      ),
+
       additionalInfo: splitLines(
         form.additionalInfo
       ),
+
       images,
 
       verified: false,
@@ -306,7 +456,10 @@ export default function OwnerBusinessForm({
           <input
             value={form.icon}
             onChange={(event) =>
-              update("icon", event.target.value)
+              update(
+                "icon",
+                event.target.value
+              )
             }
             placeholder="📍"
             className={inputClass}
@@ -339,7 +492,7 @@ export default function OwnerBusinessForm({
                 event.target.value
               )
             }
-            placeholder="Example: 9:00 AM – 8:00 PM"
+            placeholder="Example: 9:00 AM - 8:00 PM"
             className={inputClass}
           />
         </label>
@@ -451,7 +604,10 @@ export default function OwnerBusinessForm({
           type="url"
           value={form.maps}
           onChange={(event) =>
-            update("maps", event.target.value)
+            update(
+              "maps",
+              event.target.value
+            )
           }
           placeholder="Paste your Google Maps link"
           className={inputClass}
@@ -526,14 +682,113 @@ export default function OwnerBusinessForm({
         </label>
       </div>
 
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">
+              Upload Business Images
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Select images directly from your phone.
+              Maximum {maximumImages} images and 5 MB per
+              image.
+            </p>
+          </div>
+
+          <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+            {uploadedImages.length}/{maximumImages} uploaded
+          </span>
+        </div>
+
+        <label
+          className={`mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition ${
+            uploading
+              ? "cursor-not-allowed border-slate-300 bg-slate-100 opacity-70"
+              : "border-emerald-300 bg-white hover:border-emerald-500 hover:bg-emerald-50"
+          }`}
+        >
+          <span className="text-4xl">📷</span>
+
+          <span className="mt-3 font-black text-emerald-800">
+            {uploading
+              ? "Uploading Images..."
+              : "Choose Images"}
+          </span>
+
+          <span className="mt-1 text-sm text-slate-500">
+            JPG, PNG, WEBP and other image formats
+          </span>
+
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={
+              uploading ||
+              uploadedImages.length >=
+                maximumImages
+            }
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+        </label>
+
+        {uploadMessage && (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+            {uploadMessage}
+          </div>
+        )}
+
+        {uploadedImages.length > 0 && (
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {uploadedImages.map(
+              (imageUrl, index) => (
+                <article
+                  key={imageUrl}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`Uploaded business image ${
+                      index + 1
+                    }`}
+                    className="h-40 w-full object-cover"
+                  />
+
+                  <div className="flex items-center justify-between gap-3 p-3">
+                    <p className="text-sm font-bold text-slate-700">
+                      Image {index + 1}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeUploadedImage(
+                          imageUrl
+                        )
+                      }
+                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              )
+            )}
+          </div>
+        )}
+      </section>
+
       <label className="block font-bold text-slate-800">
-        Business image links
+        Additional image links
         <span className="block text-xs font-normal text-slate-500">
-          Optional — enter one HTTPS image link per line
+          Optional. Enter one HTTPS image link per line.
+          Uploaded images above are added automatically.
         </span>
 
         <textarea
-          rows={5}
+          rows={4}
           value={form.images}
           onChange={(event) =>
             update(
@@ -541,27 +796,24 @@ export default function OwnerBusinessForm({
               event.target.value
             )
           }
-          placeholder={
-            "https://example.com/business-photo-1.jpg"
-          }
+          placeholder="https://example.com/business-photo.jpg"
           className={inputClass}
         />
-
-        <span className="mt-2 block text-sm font-normal leading-6 text-slate-500">
-          You may leave this blank. The administrator can
-          add approved business images later.
-        </span>
       </label>
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={
+          saving || uploading
+        }
         className="w-full rounded-xl bg-emerald-700 px-6 py-3.5 font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {saving
-          ? "Submitting Business..."
-          : "Submit Business for Approval"}
+        {uploading
+          ? "Uploading Images..."
+          : saving
+            ? "Submitting Business..."
+            : "Submit Business for Approval"}
       </button>
     </form>
   );
-            }
+}
