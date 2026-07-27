@@ -6,13 +6,16 @@ import { useEffect, useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import { getAccountProfile } from "@/lib/accounts";
 import {
+  approveOwnerBusinessUpdate,
   listAllBusinesses,
+  rejectOwnerBusinessUpdate,
   updateBusinessApproval,
 } from "@/lib/businesses";
 
 import type {
   Business,
   BusinessApprovalStatus,
+  BusinessPendingUpdate,
 } from "@/types/business";
 
 function statusLabel(
@@ -111,6 +114,126 @@ https://go-nilgiris-pearl.vercel.app/owner/login
 - Go Nilgiris Team`;
 }
 
+function showText(value?: string) {
+  return value?.trim() || "Not provided";
+}
+
+function showList(value?: string[]) {
+  if (!value || value.length === 0) {
+    return "None";
+  }
+
+  return value.join(", ");
+}
+
+function showPhone(
+  phones?: Array<{
+    label: string;
+    number: string;
+  }>
+) {
+  const phone = phones?.[0];
+
+  if (!phone?.number) {
+    return "Not provided";
+  }
+
+  return `${phone.label || "Phone"}: ${phone.number}`;
+}
+
+function sameImages(
+  currentImages: string[],
+  requestedImages: string[]
+) {
+  return (
+    JSON.stringify(currentImages) ===
+    JSON.stringify(requestedImages)
+  );
+}
+
+type ComparisonRowProps = {
+  label: string;
+  currentValue: string;
+  requestedValue: string;
+};
+
+function ComparisonRow({
+  label,
+  currentValue,
+  requestedValue,
+}: ComparisonRowProps) {
+  const changed = currentValue !== requestedValue;
+
+  return (
+    <div
+      className={`grid gap-3 rounded-2xl border p-4 lg:grid-cols-[180px_1fr_1fr] ${
+        changed
+          ? "border-amber-200 bg-amber-50/70"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div>
+        <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+          {label}
+        </p>
+
+        {changed && (
+          <span className="mt-2 inline-block rounded-full bg-amber-200 px-2.5 py-1 text-xs font-bold text-amber-900">
+            Changed
+          </span>
+        )}
+      </div>
+
+      <div className="min-w-0 rounded-xl bg-slate-100 p-3">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Current public value
+        </p>
+
+        <p className="mt-2 break-words whitespace-pre-line text-sm leading-6 text-slate-700">
+          {currentValue}
+        </p>
+      </div>
+
+      <div className="min-w-0 rounded-xl bg-blue-50 p-3">
+        <p className="text-xs font-bold uppercase tracking-wider text-blue-700">
+          Requested value
+        </p>
+
+        <p className="mt-2 break-words whitespace-pre-line text-sm font-semibold leading-6 text-blue-950">
+          {requestedValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function applyPendingUpdateLocally(
+  business: Business,
+  pendingUpdate: BusinessPendingUpdate
+): Business {
+  return {
+    ...business,
+    name: pendingUpdate.name,
+    category: pendingUpdate.category,
+    icon: pendingUpdate.icon,
+    location: pendingUpdate.location,
+    address: pendingUpdate.address,
+    openingHours: pendingUpdate.openingHours,
+    description: pendingUpdate.description,
+    phones: pendingUpdate.phones,
+    whatsapp: pendingUpdate.whatsapp,
+    website: pendingUpdate.website,
+    maps: pendingUpdate.maps,
+    services: pendingUpdate.services,
+    highlights: pendingUpdate.highlights,
+    additionalInfo: pendingUpdate.additionalInfo,
+    images: pendingUpdate.images,
+    pendingUpdate: undefined,
+    updateApprovalStatus: undefined,
+    updateRejectionReason: undefined,
+  };
+}
+
 export default function BusinessApprovalsPage() {
   const [businesses, setBusinesses] = useState<
     Business[]
@@ -121,7 +244,7 @@ export default function BusinessApprovalsPage() {
   >({});
 
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState("");
+  const [updatingKey, setUpdatingKey] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -139,6 +262,26 @@ export default function BusinessApprovalsPage() {
             business.submittedBy === "owner"
         )
         .sort((first, second) => {
+          const firstHasPendingUpdate =
+            first.updateApprovalStatus === "pending";
+
+          const secondHasPendingUpdate =
+            second.updateApprovalStatus === "pending";
+
+          if (
+            firstHasPendingUpdate &&
+            !secondHasPendingUpdate
+          ) {
+            return -1;
+          }
+
+          if (
+            !firstHasPendingUpdate &&
+            secondHasPendingUpdate
+          ) {
+            return 1;
+          }
+
           const firstPending =
             !first.approvalStatus ||
             first.approvalStatus === "pending";
@@ -237,7 +380,9 @@ export default function BusinessApprovalsPage() {
       }
     }
 
-    setUpdatingId(business.id);
+    const actionKey = `business-${business.id}`;
+
+    setUpdatingKey(actionKey);
     setError("");
     setMessage("");
 
@@ -283,7 +428,131 @@ export default function BusinessApprovalsPage() {
           : "Unable to update business approval."
       );
     } finally {
-      setUpdatingId("");
+      setUpdatingKey("");
+    }
+  }
+
+  async function approveUpdate(
+    business: Business
+  ) {
+    if (!business.pendingUpdate) {
+      setError(
+        "No pending update was found for this business."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Approve the updated details for ${business.name}? The requested details and images will replace the current public listing.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const actionKey = `update-${business.id}`;
+
+    setUpdatingKey(actionKey);
+    setError("");
+    setMessage("");
+
+    try {
+      await approveOwnerBusinessUpdate(
+        business.id
+      );
+
+      const pendingUpdate =
+        business.pendingUpdate;
+
+      setBusinesses((current) =>
+        current.map((item) =>
+          item.id === business.id
+            ? applyPendingUpdateLocally(
+                item,
+                pendingUpdate
+              )
+            : item
+        )
+      );
+
+      setMessage(
+        `${pendingUpdate.name} updated details have been approved and are now public.`
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to approve the business update."
+      );
+    } finally {
+      setUpdatingKey("");
+    }
+  }
+
+  async function rejectUpdate(
+    business: Business
+  ) {
+    if (!business.pendingUpdate) {
+      setError(
+        "No pending update was found for this business."
+      );
+      return;
+    }
+
+    const enteredReason = window.prompt(
+      `Enter the reason for rejecting the update to ${business.name}:`
+    );
+
+    if (enteredReason === null) {
+      return;
+    }
+
+    const rejectionReason = enteredReason.trim();
+
+    if (!rejectionReason) {
+      setError(
+        "Please enter a reason before rejecting the update."
+      );
+      return;
+    }
+
+    const actionKey = `update-${business.id}`;
+
+    setUpdatingKey(actionKey);
+    setError("");
+    setMessage("");
+
+    try {
+      await rejectOwnerBusinessUpdate(
+        business.id,
+        rejectionReason
+      );
+
+      setBusinesses((current) =>
+        current.map((item) =>
+          item.id === business.id
+            ? {
+                ...item,
+                updateApprovalStatus:
+                  "rejected",
+                updateRejectionReason:
+                  rejectionReason,
+              }
+            : item
+        )
+      );
+
+      setMessage(
+        `${business.name} update request has been rejected.`
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to reject the business update."
+      );
+    } finally {
+      setUpdatingKey("");
     }
   }
 
@@ -303,6 +572,12 @@ export default function BusinessApprovalsPage() {
       business.approvalStatus === "rejected"
   ).length;
 
+  const pendingUpdateCount = businesses.filter(
+    (business) =>
+      business.updateApprovalStatus === "pending" &&
+      Boolean(business.pendingUpdate)
+  ).length;
+
   return (
     <AdminGuard>
       <main className="min-h-screen bg-slate-50 px-5 py-8 text-slate-900">
@@ -317,9 +592,10 @@ export default function BusinessApprovalsPage() {
                 Business Listing Approvals
               </h1>
 
-              <p className="mt-3 max-w-2xl leading-7 text-slate-600">
-                Review businesses submitted by approved
-                owners before making them publicly visible.
+              <p className="mt-3 max-w-3xl leading-7 text-slate-600">
+                Review new businesses and owner-requested
+                updates before publishing them on Go
+                Nilgiris.
               </p>
             </div>
 
@@ -342,7 +618,7 @@ export default function BusinessApprovalsPage() {
             </div>
           </div>
 
-          <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-slate-500">
                 Owner Submissions
@@ -355,11 +631,21 @@ export default function BusinessApprovalsPage() {
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
               <p className="text-sm font-semibold text-amber-700">
-                Pending
+                New Pending
               </p>
 
               <p className="mt-2 text-3xl font-black text-amber-800">
                 {pendingCount}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+              <p className="text-sm font-semibold text-blue-700">
+                Pending Updates
+              </p>
+
+              <p className="mt-2 text-3xl font-black text-blue-800">
+                {pendingUpdateCount}
               </p>
             </div>
 
@@ -409,8 +695,8 @@ export default function BusinessApprovalsPage() {
               </h2>
 
               <p className="mt-3 text-slate-500">
-                Businesses submitted by owners will appear
-                here for approval.
+                Businesses and update requests submitted by
+                owners will appear here.
               </p>
             </div>
           ) : (
@@ -433,6 +719,12 @@ export default function BusinessApprovalsPage() {
                     business.name,
                     business.id
                   );
+
+                const update = business.pendingUpdate;
+                const businessActionKey =
+                  `business-${business.id}`;
+                const updateActionKey =
+                  `update-${business.id}`;
 
                 return (
                   <article
@@ -461,7 +753,8 @@ export default function BusinessApprovalsPage() {
                               </h2>
 
                               <p className="mt-1 text-slate-500">
-                                {business.category} {" - "}
+                                {business.category}
+                                {" - "}
                                 {business.location}
                               </p>
                             </div>
@@ -475,15 +768,33 @@ export default function BusinessApprovalsPage() {
                           </p>
                         </div>
 
-                        <span
-                          className={`w-fit rounded-full border px-4 py-2 text-sm font-bold ${statusClass(
-                            business.approvalStatus
-                          )}`}
-                        >
-                          {statusLabel(
-                            business.approvalStatus
+                        <div className="flex flex-wrap gap-2">
+                          <span
+                            className={`w-fit rounded-full border px-4 py-2 text-sm font-bold ${statusClass(
+                              business.approvalStatus
+                            )}`}
+                          >
+                            {statusLabel(
+                              business.approvalStatus
+                            )}
+                          </span>
+
+                          {update && (
+                            <span
+                              className={`w-fit rounded-full border px-4 py-2 text-sm font-bold ${
+                                business.updateApprovalStatus ===
+                                "rejected"
+                                  ? "border-red-200 bg-red-50 text-red-700"
+                                  : "border-blue-200 bg-blue-50 text-blue-800"
+                              }`}
+                            >
+                              {business.updateApprovalStatus ===
+                              "rejected"
+                                ? "Update Rejected"
+                                : "Update Pending"}
+                            </span>
                           )}
-                        </span>
+                        </div>
                       </div>
 
                       <div className="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 sm:grid-cols-2">
@@ -608,8 +919,7 @@ export default function BusinessApprovalsPage() {
                         </div>
                       )}
 
-                      {business.highlights?.length >
-                        0 && (
+                      {business.highlights?.length > 0 && (
                         <div className="mt-6">
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                             Highlights
@@ -630,8 +940,7 @@ export default function BusinessApprovalsPage() {
                         </div>
                       )}
 
-                      {business.additionalInfo?.length >
-                        0 && (
+                      {business.additionalInfo?.length > 0 && (
                         <div className="mt-6">
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                             Additional Information
@@ -644,7 +953,7 @@ export default function BusinessApprovalsPage() {
                                   key={`${item}-${index}`}
                                   className="rounded-xl bg-slate-50 px-4 py-3"
                                 >
-                                  • {item}
+                                  - {item}
                                 </li>
                               )
                             )}
@@ -696,13 +1005,339 @@ export default function BusinessApprovalsPage() {
                           </div>
                         )}
 
+                      {update && (
+                        <section className="mt-8 rounded-3xl border-2 border-blue-200 bg-blue-50/40 p-5 sm:p-6">
+                          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-widest text-blue-700">
+                                Owner Update Request
+                              </p>
+
+                              <h3 className="mt-2 text-2xl font-black text-slate-900">
+                                Review Updated Details
+                              </h3>
+
+                              <p className="mt-2 text-sm leading-6 text-slate-600">
+                                Requested{" "}
+                                {formatDate(
+                                  update.requestedAt
+                                )}. Changed rows are highlighted.
+                              </p>
+                            </div>
+
+                            <span
+                              className={`w-fit rounded-full border px-4 py-2 text-sm font-bold ${
+                                business.updateApprovalStatus ===
+                                "rejected"
+                                  ? "border-red-200 bg-red-50 text-red-700"
+                                  : "border-blue-200 bg-blue-100 text-blue-800"
+                              }`}
+                            >
+                              {business.updateApprovalStatus ===
+                              "rejected"
+                                ? "Rejected Update"
+                                : "Awaiting Approval"}
+                            </span>
+                          </div>
+
+                          {business.updateApprovalStatus ===
+                            "rejected" &&
+                            business.updateRejectionReason && (
+                              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+                                <p className="font-bold">
+                                  Update rejection reason
+                                </p>
+
+                                <p className="mt-2 leading-6">
+                                  {
+                                    business.updateRejectionReason
+                                  }
+                                </p>
+                              </div>
+                            )}
+
+                          <div className="mt-6 space-y-3">
+                            <ComparisonRow
+                              label="Business name"
+                              currentValue={showText(
+                                business.name
+                              )}
+                              requestedValue={showText(
+                                update.name
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Category"
+                              currentValue={showText(
+                                business.category
+                              )}
+                              requestedValue={showText(
+                                update.category
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Icon"
+                              currentValue={showText(
+                                business.icon
+                              )}
+                              requestedValue={showText(
+                                update.icon
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Location"
+                              currentValue={showText(
+                                business.location
+                              )}
+                              requestedValue={showText(
+                                update.location
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Address"
+                              currentValue={showText(
+                                business.address
+                              )}
+                              requestedValue={showText(
+                                update.address
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Opening hours"
+                              currentValue={showText(
+                                business.openingHours
+                              )}
+                              requestedValue={showText(
+                                update.openingHours
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Description"
+                              currentValue={showText(
+                                business.description
+                              )}
+                              requestedValue={showText(
+                                update.description
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Phone"
+                              currentValue={showPhone(
+                                business.phones
+                              )}
+                              requestedValue={showPhone(
+                                update.phones
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="WhatsApp"
+                              currentValue={showText(
+                                business.whatsapp
+                              )}
+                              requestedValue={showText(
+                                update.whatsapp
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Website"
+                              currentValue={showText(
+                                business.website
+                              )}
+                              requestedValue={showText(
+                                update.website
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Google Maps"
+                              currentValue={showText(
+                                business.maps
+                              )}
+                              requestedValue={showText(
+                                update.maps
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Services"
+                              currentValue={showList(
+                                business.services
+                              )}
+                              requestedValue={showList(
+                                update.services
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Highlights"
+                              currentValue={showList(
+                                business.highlights
+                              )}
+                              requestedValue={showList(
+                                update.highlights
+                              )}
+                            />
+
+                            <ComparisonRow
+                              label="Additional info"
+                              currentValue={showList(
+                                business.additionalInfo
+                              )}
+                              requestedValue={showList(
+                                update.additionalInfo
+                              )}
+                            />
+                          </div>
+
+                          <div
+                            className={`mt-5 rounded-2xl border p-4 ${
+                              sameImages(
+                                business.images ?? [],
+                                update.images ?? []
+                              )
+                                ? "border-slate-200 bg-white"
+                                : "border-amber-200 bg-amber-50/70"
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Business Images
+                              </p>
+
+                              {!sameImages(
+                                business.images ?? [],
+                                update.images ?? []
+                              ) && (
+                                <span className="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-bold text-amber-900">
+                                  Changed
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                              <div>
+                                <p className="text-sm font-black text-slate-700">
+                                  Current public images
+                                </p>
+
+                                {business.images?.length ? (
+                                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {business.images.map(
+                                      (image, index) => (
+                                        <img
+                                          key={`${image}-${index}`}
+                                          src={image}
+                                          alt={`Current image ${
+                                            index + 1
+                                          }`}
+                                          className="h-28 w-full rounded-xl border border-slate-200 object-cover"
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="mt-3 rounded-xl bg-slate-100 p-4 text-sm text-slate-500">
+                                    No current images.
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className="text-sm font-black text-blue-800">
+                                  Requested images
+                                </p>
+
+                                {update.images?.length ? (
+                                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {update.images.map(
+                                      (image, index) => (
+                                        <img
+                                          key={`${image}-${index}`}
+                                          src={image}
+                                          alt={`Requested image ${
+                                            index + 1
+                                          }`}
+                                          className="h-28 w-full rounded-xl border border-blue-200 object-cover"
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="mt-3 rounded-xl bg-blue-100 p-4 text-sm text-blue-700">
+                                    Owner requested no images.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                            <button
+                              type="button"
+                              disabled={
+                                updatingKey ===
+                                updateActionKey
+                              }
+                              onClick={() =>
+                                approveUpdate(business)
+                              }
+                              className="rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Approve Updated Details
+                            </button>
+
+                            {business.updateApprovalStatus !==
+                              "rejected" && (
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingKey ===
+                                  updateActionKey
+                                }
+                                onClick={() =>
+                                  rejectUpdate(business)
+                                }
+                                className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Reject Update
+                              </button>
+                            )}
+
+                            <Link
+                              href={`/business/${business.id}`}
+                              target="_blank"
+                              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center font-bold text-slate-700"
+                            >
+                              View Current Public Listing
+                            </Link>
+                          </div>
+
+                          {updatingKey ===
+                            updateActionKey && (
+                            <p className="mt-4 text-sm font-bold text-blue-700">
+                              Updating owner request...
+                            </p>
+                          )}
+                        </section>
+                      )}
+
                       <div className="mt-7 flex flex-wrap gap-3">
                         {business.approvalStatus !==
                           "approved" && (
                           <button
                             type="button"
                             disabled={
-                              updatingId === business.id
+                              updatingKey ===
+                              businessActionKey
                             }
                             onClick={() =>
                               changeApproval(
@@ -721,7 +1356,8 @@ export default function BusinessApprovalsPage() {
                           <button
                             type="button"
                             disabled={
-                              updatingId === business.id
+                              updatingKey ===
+                              businessActionKey
                             }
                             onClick={() =>
                               changeApproval(
@@ -740,7 +1376,8 @@ export default function BusinessApprovalsPage() {
                           <button
                             type="button"
                             disabled={
-                              updatingId === business.id
+                              updatingKey ===
+                              businessActionKey
                             }
                             onClick={() =>
                               changeApproval(
@@ -781,7 +1418,8 @@ export default function BusinessApprovalsPage() {
                         )}
                       </div>
 
-                      {updatingId === business.id && (
+                      {updatingKey ===
+                        businessActionKey && (
                         <p className="mt-4 text-sm font-bold text-slate-500">
                           Updating approval status...
                         </p>
