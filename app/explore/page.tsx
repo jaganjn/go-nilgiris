@@ -7,22 +7,19 @@ import {
   useState,
 } from "react";
 
+import {
+  allBusinessSubcategories,
+  allNilgirisLocations,
+  businessCategoryGroups,
+  getBusinessSubcategories,
+  getLocationsForTaluk,
+  mainBusinessCategories,
+  nilgirisTaluks,
+} from "@/data/directoryOptions";
+
 import { listBusinesses } from "@/lib/businesses";
 
 import type { Business } from "@/types/business";
-
-const categories = [
-  "All",
-  "Hotel / Resort",
-  "Homestay",
-  "Restaurant",
-  "Taxi",
-  "Shopping",
-  "Tea Estate",
-  "Tourist Place",
-  "Adventure",
-  "Service",
-];
 
 type ListingFilter =
   | "all"
@@ -34,6 +31,37 @@ type BusinessCardImageProps = {
   alt: string;
   icon?: string;
 };
+
+const allSubcategoriesLabel =
+  "All Subcategories";
+
+const allAreasLabel = "All Areas";
+
+const legacyMainCategoryMap: Record<
+  string,
+  string
+> = {
+  "hotel / resort": "Stay",
+  hotel: "Stay",
+  resort: "Stay",
+  homestay: "Stay",
+  restaurant: "Food & Dining",
+  cafe: "Food & Dining",
+  taxi: "Taxi & Transport",
+  shopping: "Shopping",
+  "tea estate": "Tea & Local Products",
+  "tourist place": "Tourism",
+  adventure: "Adventure",
+  service: "Professional Services",
+};
+
+function normalize(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function BusinessCardImage({
   src,
@@ -68,17 +96,184 @@ function BusinessCardImage({
   );
 }
 
+function mainCategoryMatches(
+  businessCategory: string,
+  selectedMainCategory: string
+) {
+  if (
+    selectedMainCategory === "All"
+  ) {
+    return true;
+  }
+
+  const normalizedBusinessCategory =
+    normalize(businessCategory);
+
+  const normalizedSelectedCategory =
+    normalize(selectedMainCategory);
+
+  if (
+    normalizedBusinessCategory ===
+    normalizedSelectedCategory
+  ) {
+    return true;
+  }
+
+  if (
+    legacyMainCategoryMap[
+      normalizedBusinessCategory
+    ] === selectedMainCategory
+  ) {
+    return true;
+  }
+
+  const group =
+    businessCategoryGroups.find(
+      (item) =>
+        item.name ===
+        selectedMainCategory
+    );
+
+  return Boolean(
+    group?.subcategories.some(
+      (subcategory) => {
+        const normalizedSubcategory =
+          normalize(subcategory);
+
+        return (
+          normalizedBusinessCategory ===
+            normalizedSubcategory ||
+          normalizedBusinessCategory.includes(
+            normalizedSubcategory
+          ) ||
+          normalizedSubcategory.includes(
+            normalizedBusinessCategory
+          )
+        );
+      }
+    )
+  );
+}
+
+function subcategoryMatches(
+  businessCategory: string,
+  selectedSubcategory: string
+) {
+  if (
+    selectedSubcategory ===
+    allSubcategoriesLabel
+  ) {
+    return true;
+  }
+
+  const normalizedBusinessCategory =
+    normalize(businessCategory);
+
+  const normalizedSelectedSubcategory =
+    normalize(selectedSubcategory);
+
+  return (
+    normalizedBusinessCategory ===
+      normalizedSelectedSubcategory ||
+    normalizedBusinessCategory.includes(
+      normalizedSelectedSubcategory
+    ) ||
+    normalizedSelectedSubcategory.includes(
+      normalizedBusinessCategory
+    )
+  );
+}
+
+function locationMatches(
+  businessLocation: string,
+  selectedLocation: string
+) {
+  if (
+    selectedLocation ===
+      allAreasLabel ||
+    selectedLocation ===
+      "All Nilgiris"
+  ) {
+    return true;
+  }
+
+  const normalizedBusinessLocation =
+    normalize(businessLocation);
+
+  const selectedVariants = [
+    selectedLocation,
+    ...selectedLocation.split("/"),
+  ]
+    .map(normalize)
+    .filter(Boolean);
+
+  return selectedVariants.some(
+    (variant) =>
+      normalizedBusinessLocation ===
+        variant ||
+      normalizedBusinessLocation.includes(
+        variant
+      ) ||
+      variant.includes(
+        normalizedBusinessLocation
+      )
+  );
+}
+
+function talukMatches(
+  businessLocation: string,
+  selectedTaluk: string
+) {
+  if (
+    selectedTaluk ===
+    "All Nilgiris"
+  ) {
+    return true;
+  }
+
+  const talukPlaces =
+    getLocationsForTaluk(
+      selectedTaluk
+    );
+
+  return (
+    locationMatches(
+      businessLocation,
+      selectedTaluk
+    ) ||
+    talukPlaces.some((place) =>
+      locationMatches(
+        businessLocation,
+        place
+      )
+    )
+  );
+}
+
 export default function ExplorePage() {
   const [businesses, setBusinesses] =
     useState<Business[]>([]);
 
-  const [category, setCategory] =
+  const [mainCategory, setMainCategory] =
     useState("All");
 
-  const [location, setLocation] =
-    useState("All");
+  const [
+    subcategory,
+    setSubcategory,
+  ] = useState(
+    allSubcategoriesLabel
+  );
 
-  const [listingFilter, setListingFilter] =
+  const [taluk, setTaluk] =
+    useState("All Nilgiris");
+
+  const [area, setArea] =
+    useState(allAreasLabel);
+
+  const [
+    listingFilter,
+    setListingFilter,
+  ] =
     useState<ListingFilter>("all");
 
   const [search, setSearch] =
@@ -122,39 +317,77 @@ export default function ExplorePage() {
     };
   }, []);
 
-  const locations = useMemo(() => {
-    const availableLocations =
-      businesses
-        .map((business) =>
-          business.location.trim()
-        )
-        .filter(Boolean);
+  const subcategoryOptions =
+    useMemo(() => {
+      const values =
+        mainCategory === "All"
+          ? allBusinessSubcategories
+          : getBusinessSubcategories(
+              mainCategory
+            );
 
-    return [
-      "All",
-      ...Array.from(
-        new Set(availableLocations)
-      ).sort((first, second) =>
-        first.localeCompare(second)
-      ),
-    ];
-  }, [businesses]);
+      return [
+        allSubcategoriesLabel,
+        ...values,
+      ];
+    }, [mainCategory]);
+
+  const areaOptions = useMemo(
+    () => {
+      const masterLocations =
+        taluk === "All Nilgiris"
+          ? allNilgirisLocations
+          : getLocationsForTaluk(
+              taluk
+            );
+
+      return [
+        allAreasLabel,
+        ...Array.from(
+          new Set(
+            masterLocations.filter(
+              (location) =>
+                location !==
+                "All Nilgiris"
+            )
+          )
+        ).sort((first, second) =>
+          first.localeCompare(second)
+        ),
+      ];
+    },
+    [taluk]
+  );
 
   const filtered = useMemo(() => {
     const term =
-      search.trim().toLowerCase();
+      normalize(search);
 
     return businesses.filter(
       (business) => {
-        const categoryMatch =
-          category === "All" ||
-          business.category ===
-            category;
+        const mainCategoryMatch =
+          mainCategoryMatches(
+            business.category,
+            mainCategory
+          );
 
-        const locationMatch =
-          location === "All" ||
-          business.location ===
-            location;
+        const subcategoryMatch =
+          subcategoryMatches(
+            business.category,
+            subcategory
+          );
+
+        const talukMatch =
+          talukMatches(
+            business.location,
+            taluk
+          );
+
+        const areaMatch =
+          locationMatches(
+            business.location,
+            area
+          );
 
         const listingMatch =
           listingFilter === "all" ||
@@ -167,23 +400,27 @@ export default function ExplorePage() {
 
         const searchMatch =
           !term ||
-          [
-            business.name,
-            business.location,
-            business.category,
-            business.description,
-            ...(business.services ??
-              []),
-            ...(business.highlights ??
-              []),
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(term);
+          normalize(
+            [
+              business.name,
+              business.location,
+              business.address,
+              business.category,
+              business.description,
+              ...(business.services ??
+                []),
+              ...(business.highlights ??
+                []),
+              ...(business.additionalInfo ??
+                []),
+            ].join(" ")
+          ).includes(term);
 
         return (
-          categoryMatch &&
-          locationMatch &&
+          mainCategoryMatch &&
+          subcategoryMatch &&
+          talukMatch &&
+          areaMatch &&
           listingMatch &&
           searchMatch
         );
@@ -191,22 +428,47 @@ export default function ExplorePage() {
     );
   }, [
     businesses,
-    category,
-    location,
+    mainCategory,
+    subcategory,
+    taluk,
+    area,
     listingFilter,
     search,
   ]);
 
   const filtersActive =
     search.trim() !== "" ||
-    category !== "All" ||
-    location !== "All" ||
+    mainCategory !== "All" ||
+    subcategory !==
+      allSubcategoriesLabel ||
+    taluk !== "All Nilgiris" ||
+    area !== allAreasLabel ||
     listingFilter !== "all";
+
+  function handleMainCategoryChange(
+    value: string
+  ) {
+    setMainCategory(value);
+    setSubcategory(
+      allSubcategoriesLabel
+    );
+  }
+
+  function handleTalukChange(
+    value: string
+  ) {
+    setTaluk(value);
+    setArea(allAreasLabel);
+  }
 
   function clearFilters() {
     setSearch("");
-    setCategory("All");
-    setLocation("All");
+    setMainCategory("All");
+    setSubcategory(
+      allSubcategoriesLabel
+    );
+    setTaluk("All Nilgiris");
+    setArea(allAreasLabel);
     setListingFilter("all");
   }
 
@@ -219,13 +481,13 @@ export default function ExplorePage() {
           </p>
 
           <h1 className="mt-3 text-4xl font-black sm:text-5xl">
-            Find trusted places and local services
+            Find places, businesses and local services
           </h1>
 
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-emerald-50">
-            Search stays, restaurants, taxis,
-            attractions, shops and local services
-            across the Nilgiris.
+            Search across every taluk, town, village,
+            business category and local service in the
+            Nilgiris.
           </p>
 
           <div className="mx-auto mt-7 max-w-2xl">
@@ -233,7 +495,7 @@ export default function ExplorePage() {
               htmlFor="business-search"
               className="sr-only"
             >
-              Search businesses
+              Search the Nilgiris directory
             </label>
 
             <input
@@ -244,7 +506,7 @@ export default function ExplorePage() {
                   event.target.value
                 )
               }
-              placeholder="Search by name, service or place..."
+              placeholder="Search business, service, place or village..."
               className="w-full rounded-2xl border border-white/20 bg-white px-5 py-4 text-slate-900 shadow-xl outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-white/20"
             />
           </div>
@@ -257,11 +519,11 @@ export default function ExplorePage() {
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">
-                  Search Filters
+                  Advanced Directory Filters
                 </p>
 
                 <h2 className="mt-1 text-xl font-black">
-                  Narrow your results
+                  Find exactly what you need
                 </h2>
               </div>
 
@@ -276,19 +538,20 @@ export default function ExplorePage() {
               )}
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <label className="font-bold text-slate-700">
-                Category
+                Main category
+
                 <select
-                  value={category}
+                  value={mainCategory}
                   onChange={(event) =>
-                    setCategory(
+                    handleMainCategoryChange(
                       event.target.value
                     )
                   }
                   className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                 >
-                  {categories.map(
+                  {mainBusinessCategories.map(
                     (item) => (
                       <option
                         key={item}
@@ -302,17 +565,68 @@ export default function ExplorePage() {
               </label>
 
               <label className="font-bold text-slate-700">
-                Location
+                Subcategory
+
                 <select
-                  value={location}
+                  value={subcategory}
                   onChange={(event) =>
-                    setLocation(
+                    setSubcategory(
                       event.target.value
                     )
                   }
                   className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                 >
-                  {locations.map(
+                  {subcategoryOptions.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+
+              <label className="font-bold text-slate-700">
+                Taluk / Region
+
+                <select
+                  value={taluk}
+                  onChange={(event) =>
+                    handleTalukChange(
+                      event.target.value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                >
+                  {nilgirisTaluks.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+
+              <label className="font-bold text-slate-700">
+                Area / Locality
+
+                <select
+                  value={area}
+                  onChange={(event) =>
+                    setArea(
+                      event.target.value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                >
+                  {areaOptions.map(
                     (item) => (
                       <option
                         key={item}
@@ -327,6 +641,7 @@ export default function ExplorePage() {
 
               <label className="font-bold text-slate-700">
                 Listing type
+
                 <select
                   value={listingFilter}
                   onChange={(event) =>
@@ -356,7 +671,7 @@ export default function ExplorePage() {
           <div className="mt-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">
-                Public Directory
+                Nilgiris Directory
               </p>
 
               <h2 className="mt-2 text-3xl font-black">
@@ -416,8 +731,9 @@ export default function ExplorePage() {
                 </h3>
 
                 <p className="mt-3 text-slate-600">
-                  Try another search,
-                  category or location.
+                  The location and category are available,
+                  but no approved business has been added
+                  there yet.
                 </p>
 
                 <button
