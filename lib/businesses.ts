@@ -1,6 +1,7 @@
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -28,6 +29,8 @@ import type {
   Business,
   BusinessApprovalStatus,
   BusinessInput,
+  BusinessPendingUpdate,
+  BusinessUpdateInput,
 } from "@/types/business";
 
 const collectionName = "businesses";
@@ -54,6 +57,86 @@ function isPublicBusiness(
     !business.approvalStatus ||
     business.approvalStatus === "approved"
   );
+}
+
+function preparePendingUpdate(
+  input: BusinessUpdateInput
+): BusinessPendingUpdate {
+  return {
+    name: input.name.trim(),
+    category: input.category.trim(),
+    icon: input.icon.trim() || "📍",
+    location: input.location.trim(),
+    address: input.address.trim(),
+
+    openingHours:
+      input.openingHours.trim() ||
+      "Contact business for timings",
+
+    description: input.description.trim(),
+
+    phones: input.phones.map((phone) => ({
+      label: phone.label.trim() || "Phone",
+      number: phone.number.trim(),
+    })),
+
+    whatsapp:
+      input.whatsapp?.trim() || "",
+
+    website:
+      input.website?.trim() || "",
+
+    maps:
+      input.maps?.trim() || "",
+
+    services: input.services
+      .map((item) => item.trim())
+      .filter(Boolean),
+
+    highlights: input.highlights
+      .map((item) => item.trim())
+      .filter(Boolean),
+
+    additionalInfo: input.additionalInfo
+      .map((item) => item.trim())
+      .filter(Boolean),
+
+    images: Array.from(
+      new Set(
+        input.images
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    ),
+
+    requestedAt: serverTimestamp(),
+  };
+}
+
+function getApprovedUpdateFields(
+  pendingUpdate: BusinessPendingUpdate
+): BusinessUpdateInput {
+  return {
+    name: pendingUpdate.name,
+    category: pendingUpdate.category,
+    icon: pendingUpdate.icon,
+    location: pendingUpdate.location,
+    address: pendingUpdate.address,
+    openingHours:
+      pendingUpdate.openingHours,
+    description:
+      pendingUpdate.description,
+    phones: pendingUpdate.phones,
+    whatsapp: pendingUpdate.whatsapp,
+    website: pendingUpdate.website,
+    maps: pendingUpdate.maps,
+    services: pendingUpdate.services,
+    highlights:
+      pendingUpdate.highlights,
+    additionalInfo:
+      pendingUpdate.additionalInfo,
+    images: pendingUpdate.images,
+  };
 }
 
 export async function listBusinesses(): Promise<
@@ -380,6 +463,254 @@ export async function submitOwnerBusiness(
   });
 
   return businessId;
+}
+
+export async function submitOwnerBusinessUpdate(
+  businessId: string,
+  input: BusinessUpdateInput,
+  owner: AccountProfile
+): Promise<void> {
+  if (!firebaseConfigured || !db) {
+    throw new Error(
+      "Firebase is not configured."
+    );
+  }
+
+  if (
+    owner.role !== "owner" ||
+    owner.status !== "active"
+  ) {
+    throw new Error(
+      "Only approved business owners can update listings."
+    );
+  }
+
+  const firestoreDb = db;
+
+  const businessReference = doc(
+    firestoreDb,
+    collectionName,
+    businessId
+  );
+
+  const snapshot = await getDoc(
+    businessReference
+  );
+
+  if (!snapshot.exists()) {
+    throw new Error(
+      "Business listing not found."
+    );
+  }
+
+  const business = {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as Business;
+
+  if (
+    business.ownerId !== owner.uid ||
+    business.submittedBy !== "owner"
+  ) {
+    throw new Error(
+      "You do not have permission to update this business."
+    );
+  }
+
+  if (
+    business.approvalStatus !== "approved"
+  ) {
+    throw new Error(
+      "Only approved businesses can use the update request feature."
+    );
+  }
+
+  if (input.name.trim().length < 2) {
+    throw new Error(
+      "Please enter the business name."
+    );
+  }
+
+  if (!input.location.trim()) {
+    throw new Error(
+      "Please enter the business location."
+    );
+  }
+
+  if (!input.address.trim()) {
+    throw new Error(
+      "Please enter the full address."
+    );
+  }
+
+  if (
+    input.description.trim().length < 20
+  ) {
+    throw new Error(
+      "Please provide a business description of at least 20 characters."
+    );
+  }
+
+  if (
+    !input.phones[0]?.number.trim()
+  ) {
+    throw new Error(
+      "Please enter a business phone number."
+    );
+  }
+
+  const invalidImage =
+    input.images.find(
+      (image) =>
+        !/^https:\/\//i.test(
+          image.trim()
+        )
+    );
+
+  if (invalidImage) {
+    throw new Error(
+      "Business image links must begin with https://"
+    );
+  }
+
+  await updateDoc(
+    businessReference,
+    {
+      pendingUpdate:
+        preparePendingUpdate(input),
+
+      updateApprovalStatus:
+        "pending",
+
+      updateRejectionReason: "",
+
+      updatedAt: serverTimestamp(),
+    }
+  );
+}
+
+export async function approveOwnerBusinessUpdate(
+  businessId: string
+): Promise<void> {
+  if (!firebaseConfigured || !db) {
+    throw new Error(
+      "Firebase is not configured."
+    );
+  }
+
+  const firestoreDb = db;
+
+  const businessReference = doc(
+    firestoreDb,
+    collectionName,
+    businessId
+  );
+
+  const snapshot = await getDoc(
+    businessReference
+  );
+
+  if (!snapshot.exists()) {
+    throw new Error(
+      "Business listing not found."
+    );
+  }
+
+  const business = {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as Business;
+
+  if (!business.pendingUpdate) {
+    throw new Error(
+      "No pending business update was found."
+    );
+  }
+
+  const approvedFields =
+    getApprovedUpdateFields(
+      business.pendingUpdate
+    );
+
+  await updateDoc(
+    businessReference,
+    {
+      ...approvedFields,
+
+      pendingUpdate:
+        deleteField(),
+
+      updateApprovalStatus:
+        deleteField(),
+
+      updateRejectionReason:
+        deleteField(),
+
+      updatedAt: serverTimestamp(),
+    }
+  );
+}
+
+export async function rejectOwnerBusinessUpdate(
+  businessId: string,
+  rejectionReason: string
+): Promise<void> {
+  if (!firebaseConfigured || !db) {
+    throw new Error(
+      "Firebase is not configured."
+    );
+  }
+
+  const reason =
+    rejectionReason.trim();
+
+  if (!reason) {
+    throw new Error(
+      "Please provide a rejection reason."
+    );
+  }
+
+  const firestoreDb = db;
+
+  const businessReference = doc(
+    firestoreDb,
+    collectionName,
+    businessId
+  );
+
+  const snapshot = await getDoc(
+    businessReference
+  );
+
+  if (!snapshot.exists()) {
+    throw new Error(
+      "Business listing not found."
+    );
+  }
+
+  const business = {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as Business;
+
+  if (!business.pendingUpdate) {
+    throw new Error(
+      "No pending business update was found."
+    );
+  }
+
+  await updateDoc(
+    businessReference,
+    {
+      updateApprovalStatus:
+        "rejected",
+
+      updateRejectionReason:
+        reason,
+
+      updatedAt: serverTimestamp(),
+    }
+  );
 }
 
 export async function updateBusinessApproval(
