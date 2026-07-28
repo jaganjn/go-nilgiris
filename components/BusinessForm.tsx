@@ -7,6 +7,16 @@ import {
   type FormEvent,
 } from "react";
 
+import {
+  allNilgirisLocations,
+  businessCategoryGroups,
+  findTalukForLocation,
+  getBusinessSubcategories,
+  getLocationsForTaluk,
+  mainBusinessCategories,
+  nilgirisTaluks,
+} from "@/data/directoryOptions";
+
 import { saveBusiness } from "@/lib/businesses";
 import { uploadBusinessImage } from "@/lib/cloudinaryUpload";
 import { firebaseConfigured } from "@/lib/firebase";
@@ -17,6 +27,20 @@ import type {
 } from "@/types/business";
 
 const maximumImages = 10;
+
+const customCategoryOption =
+  "Other / Custom Category";
+
+const selectAreaOption =
+  "Select Area / Locality";
+
+const customLocationOption =
+  "Other Nilgiris Location";
+
+const formMainCategories =
+  mainBusinessCategories.filter(
+    (category) => category !== "All"
+  );
 
 const splitLines = (value: string) =>
   value
@@ -31,12 +55,167 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+const normalize = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const legacyCategoryGroups: Record<
+  string,
+  string
+> = {
+  "hotel / resort": "Stay",
+  hotel: "Stay",
+  resort: "Stay",
+  homestay: "Stay",
+  restaurant: "Food & Dining",
+  cafe: "Food & Dining",
+  taxi: "Taxi & Transport",
+  shopping: "Shopping",
+  "tea estate": "Tea & Local Products",
+  "tourist place": "Tourism",
+  adventure: "Adventure",
+  service: "Professional Services",
+};
+
+type InitialCategorySelection = {
+  mainCategory: string;
+  subcategory: string;
+  customCategory: string;
+};
+
+function resolveInitialCategory(
+  category?: string
+): InitialCategorySelection {
+  const value = category?.trim();
+
+  if (!value) {
+    return {
+      mainCategory: "Stay",
+      subcategory: "Hotel",
+      customCategory: "",
+    };
+  }
+
+  const normalizedValue =
+    normalize(value);
+
+  for (const group of businessCategoryGroups) {
+    const exactSubcategory =
+      group.subcategories.find(
+        (item) =>
+          normalize(item) ===
+          normalizedValue
+      );
+
+    if (exactSubcategory) {
+      return {
+        mainCategory: group.name,
+        subcategory: exactSubcategory,
+        customCategory: "",
+      };
+    }
+  }
+
+  const exactGroup =
+    businessCategoryGroups.find(
+      (group) =>
+        normalize(group.name) ===
+        normalizedValue
+    );
+
+  if (exactGroup) {
+    return {
+      mainCategory: exactGroup.name,
+      subcategory:
+        customCategoryOption,
+      customCategory: value,
+    };
+  }
+
+  return {
+    mainCategory:
+      legacyCategoryGroups[
+        normalizedValue
+      ] ?? "Other",
+    subcategory:
+      customCategoryOption,
+    customCategory: value,
+  };
+}
+
+type InitialLocationSelection = {
+  taluk: string;
+  area: string;
+  customLocation: string;
+};
+
+function resolveInitialLocation(
+  location?: string
+): InitialLocationSelection {
+  const value = location?.trim();
+
+  if (!value) {
+    return {
+      taluk: "All Nilgiris",
+      area: selectAreaOption,
+      customLocation: "",
+    };
+  }
+
+  const exactLocation =
+    allNilgirisLocations.find(
+      (item) =>
+        normalize(item) ===
+        normalize(value)
+    );
+
+  if (
+    exactLocation &&
+    exactLocation !== "All Nilgiris" &&
+    exactLocation !== customLocationOption
+  ) {
+    const detectedTaluk =
+      findTalukForLocation(
+        exactLocation
+      );
+
+    return {
+      taluk: nilgirisTaluks.includes(
+        detectedTaluk
+      )
+        ? detectedTaluk
+        : "All Nilgiris",
+      area: exactLocation,
+      customLocation: "",
+    };
+  }
+
+  return {
+    taluk: "All Nilgiris",
+    area: customLocationOption,
+    customLocation: value,
+  };
+}
+
 export default function BusinessForm({
   initial,
 }: {
   initial?: Business;
 }) {
   const router = useRouter();
+
+  const initialCategory =
+    resolveInitialCategory(
+      initial?.category
+    );
+
+  const initialLocation =
+    resolveInitialLocation(
+      initial?.location
+    );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -59,14 +238,44 @@ export default function BusinessForm({
     setSlugEditedManually,
   ] = useState(Boolean(initial?.id));
 
+  const [
+    mainCategory,
+    setMainCategory,
+  ] = useState(
+    initialCategory.mainCategory
+  );
+
+  const [
+    subcategory,
+    setSubcategory,
+  ] = useState(
+    initialCategory.subcategory
+  );
+
+  const [
+    customCategory,
+    setCustomCategory,
+  ] = useState(
+    initialCategory.customCategory
+  );
+
+  const [taluk, setTaluk] =
+    useState(initialLocation.taluk);
+
+  const [area, setArea] =
+    useState(initialLocation.area);
+
+  const [
+    customLocation,
+    setCustomLocation,
+  ] = useState(
+    initialLocation.customLocation
+  );
+
   const [form, setForm] = useState({
     name: initial?.name ?? "",
     id: initial?.id ?? "",
-    category:
-      initial?.category ??
-      "Hotel / Resort",
     icon: initial?.icon ?? "📍",
-    location: initial?.location ?? "",
     address: initial?.address ?? "",
     openingHours:
       initial?.openingHours ?? "",
@@ -84,13 +293,13 @@ export default function BusinessForm({
       initial?.website ?? "",
     maps: initial?.maps ?? "",
     services:
-      initial?.services.join("\n") ??
+      initial?.services?.join("\n") ??
       "",
     highlights:
-      initial?.highlights.join("\n") ??
+      initial?.highlights?.join("\n") ??
       "",
     additionalInfo:
-      initial?.additionalInfo.join(
+      initial?.additionalInfo?.join(
         "\n"
       ) ?? "",
     images: "",
@@ -98,6 +307,45 @@ export default function BusinessForm({
       initial?.verified ?? false,
     featured:
       initial?.featured ?? false,
+  });
+
+  const subcategoryOptions =
+    getBusinessSubcategories(
+      mainCategory
+    );
+
+  const masterAreaOptions =
+    taluk === "All Nilgiris"
+      ? allNilgirisLocations
+      : getLocationsForTaluk(
+          taluk
+        );
+
+  const areaOptions = Array.from(
+    new Set([
+      ...masterAreaOptions.filter(
+        (location) =>
+          location !== "All Nilgiris" &&
+          location !== customLocationOption
+      ),
+      customLocationOption,
+    ])
+  ).sort((first, second) => {
+    if (
+      first === customLocationOption
+    ) {
+      return 1;
+    }
+
+    if (
+      second === customLocationOption
+    ) {
+      return -1;
+    }
+
+    return first.localeCompare(
+      second
+    );
   });
 
   function update(
@@ -134,6 +382,32 @@ export default function BusinessForm({
       id: slugify(value),
     }));
 
+    setError("");
+  }
+
+  function handleMainCategoryChange(
+    value: string
+  ) {
+    const firstSubcategory =
+      getBusinessSubcategories(
+        value
+      )[0];
+
+    setMainCategory(value);
+    setSubcategory(
+      firstSubcategory ??
+        customCategoryOption
+    );
+    setCustomCategory("");
+    setError("");
+  }
+
+  function handleTalukChange(
+    value: string
+  ) {
+    setTaluk(value);
+    setArea(selectAreaOption);
+    setCustomLocation("");
     setError("");
   }
 
@@ -297,6 +571,56 @@ export default function BusinessForm({
       return;
     }
 
+    const finalCategory =
+      subcategory ===
+      customCategoryOption
+        ? customCategory.trim()
+        : subcategory.trim();
+
+    if (!finalCategory) {
+      setError(
+        "Please select or enter a business category."
+      );
+      return;
+    }
+
+    const finalLocation =
+      area === customLocationOption
+        ? customLocation.trim()
+        : area === selectAreaOption
+          ? ""
+          : area.trim();
+
+    if (!finalLocation) {
+      setError(
+        "Please select or enter the business area or locality."
+      );
+      return;
+    }
+
+    if (!form.address.trim()) {
+      setError(
+        "Full address is required."
+      );
+      return;
+    }
+
+    if (!form.openingHours.trim()) {
+      setError(
+        "Opening hours are required."
+      );
+      return;
+    }
+
+    if (
+      form.description.trim().length < 20
+    ) {
+      setError(
+        "Please enter a business description of at least 20 characters."
+      );
+      return;
+    }
+
     const manualImages =
       splitLines(form.images);
 
@@ -339,11 +663,10 @@ export default function BusinessForm({
       const payload: BusinessInput = {
         id: generatedId,
         name: form.name.trim(),
-        category: form.category,
+        category: finalCategory,
         icon:
           form.icon.trim() || "📍",
-        location:
-          form.location.trim(),
+        location: finalLocation,
         address:
           form.address.trim(),
         openingHours:
@@ -410,7 +733,7 @@ export default function BusinessForm({
   }
 
   const inputClass =
-    "mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
+    "mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
 
   return (
     <form
@@ -460,32 +783,157 @@ export default function BusinessForm({
         </label>
 
         <label className="font-bold">
-          Category
+          Main category
           <select
-            value={form.category}
+            value={mainCategory}
             onChange={(event) =>
-              update(
-                "category",
+              handleMainCategoryChange(
                 event.target.value
               )
             }
             className={inputClass}
           >
-            <option>
-              Hotel / Resort
-            </option>
-            <option>Homestay</option>
-            <option>Restaurant</option>
-            <option>Taxi</option>
-            <option>Shopping</option>
-            <option>Tea Estate</option>
-            <option>
-              Tourist Place
-            </option>
-            <option>Adventure</option>
-            <option>Service</option>
+            {formMainCategories.map(
+              (category) => (
+                <option
+                  key={category}
+                  value={category}
+                >
+                  {category}
+                </option>
+              )
+            )}
           </select>
         </label>
+
+        <label className="font-bold">
+          Subcategory
+          <select
+            value={subcategory}
+            onChange={(event) => {
+              setSubcategory(
+                event.target.value
+              );
+              setError("");
+            }}
+            className={inputClass}
+          >
+            {subcategoryOptions.map(
+              (item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+              )
+            )}
+
+            <option
+              value={customCategoryOption}
+            >
+              {customCategoryOption}
+            </option>
+          </select>
+        </label>
+
+        {subcategory ===
+          customCategoryOption && (
+          <label className="font-bold sm:col-span-2">
+            Custom category
+            <input
+              required
+              value={customCategory}
+              onChange={(event) => {
+                setCustomCategory(
+                  event.target.value
+                );
+                setError("");
+              }}
+              placeholder="Enter the exact business category"
+              className={inputClass}
+            />
+          </label>
+        )}
+
+        <label className="font-bold">
+          Taluk / Region
+          <select
+            value={taluk}
+            onChange={(event) =>
+              handleTalukChange(
+                event.target.value
+              )
+            }
+            className={inputClass}
+          >
+            {nilgirisTaluks.map(
+              (item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <label className="font-bold">
+          Area / Locality
+          <select
+            value={area}
+            onChange={(event) => {
+              setArea(
+                event.target.value
+              );
+
+              if (
+                event.target.value !==
+                customLocationOption
+              ) {
+                setCustomLocation("");
+              }
+
+              setError("");
+            }}
+            className={inputClass}
+          >
+            <option value={selectAreaOption}>
+              {selectAreaOption}
+            </option>
+
+            {areaOptions.map(
+              (item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        {area === customLocationOption && (
+          <label className="font-bold sm:col-span-2">
+            Custom Nilgiris location
+            <input
+              required
+              value={customLocation}
+              onChange={(event) => {
+                setCustomLocation(
+                  event.target.value
+                );
+                setError("");
+              }}
+              placeholder="Enter area, village or locality"
+              className={inputClass}
+            />
+          </label>
+        )}
 
         <label className="font-bold">
           Icon
@@ -497,22 +945,7 @@ export default function BusinessForm({
                 event.target.value
               )
             }
-            className={inputClass}
-          />
-        </label>
-
-        <label className="font-bold">
-          Short location
-          <input
-            required
-            value={form.location}
-            onChange={(event) =>
-              update(
-                "location",
-                event.target.value
-              )
-            }
-            placeholder="Fern Hill, Ooty"
+            placeholder="📍"
             className={inputClass}
           />
         </label>
@@ -528,7 +961,7 @@ export default function BusinessForm({
                 event.target.value
               )
             }
-            placeholder="Open 24 hours"
+            placeholder="Example: 9:00 AM - 8:00 PM"
             className={inputClass}
           />
         </label>
